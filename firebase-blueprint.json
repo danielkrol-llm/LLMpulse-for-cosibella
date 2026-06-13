@@ -1,0 +1,89 @@
+{
+  "entities": {
+    "Brand": {
+      "title": "Brand",
+      "description": "Represents a tracked brand in the SEO/AEO system",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "sov": { "type": "number" },
+        "mentionsCount": { "type": "number" },
+        "isCompetitor": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "sov"]
+    },
+    "AuditQuery": {
+      "title": "AuditQuery",
+      "description": "SEO Search simulation and citation results",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "queryText": { "type": "string" },
+        "model": { "type": "string" },
+        "responseMarkdown": { "type": "string" },
+        "citations": { "type": "array" },
+        "score": { "type": "number" },
+        "detectedBrands": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "queryText", "model", "createdAt"]
+    },
+    "CrawlerLog": {
+      "title": "CrawlerLog",
+      "description": "Active server logs filtering LLM bots",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ip": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "method": { "type": "string" },
+        "url": { "type": "string" },
+        "status": { "type": "string" },
+        "userAgent": { "type": "string" },
+        "botType": { "type": "string" },
+        "isBot": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userAgent", "isBot", "createdAt"]
+    },
+    "GeoContentScan": {
+      "title": "GeoContentScan",
+      "description": "GEO Content Score analysis and optimized variants",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "originalText": { "type": "string" },
+        "optimizedText": { "type": "string" },
+        "score": { "type": "number" },
+        "citationsRatio": { "type": "number" },
+        "informationDensity": { "type": "number" },
+        "jargonIntegration": { "type": "number" },
+        "brandMentions": { "type": "number" },
+        "readability": { "type": "number" },
+        "languages": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "originalText", "score", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/brands/{brandId}": {
+      "schema": "Brand",
+      "description": "Monitored brands and aggregate SOV stats"
+    },
+    "/auditQueries/{queryId}": {
+      "schema": "AuditQuery",
+      "description": "Stored SEO query runs and brand mentions"
+    },
+    "/crawlerLogs/{logId}": {
+      "schema": "CrawlerLog",
+      "description": "Aggregated bot access logs uploaded via system settings"
+    },
+    "/geoContentScans/{scanId}": {
+      "schema": "GeoContentScan",
+      "description": "Content optimization history results"
+    }
+  }
+}

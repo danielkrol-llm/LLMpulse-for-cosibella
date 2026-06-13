@@ -1,0 +1,103 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Catch-all Default-Deny rule to secure all unmapped collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- REUSABLE SECURITY HIGHER-ORDER HELPERS ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && (request.auth.token.email_verified == true);
+    }
+
+    function isOwner(ownerId) {
+      return isSignedIn() && (request.auth.uid == ownerId);
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- ENTITY SCHEMA VALIDATORS ---
+    function isValidBrand(data) {
+      return data.keys().hasAll(['id', 'name', 'sov'])
+        && data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 100
+        && data.sov is number && data.sov >= 0 && data.sov <= 100;
+    }
+
+    function isValidAuditQuery(data) {
+      return data.keys().hasAll(['id', 'queryText', 'model', 'createdAt'])
+        && data.id is string && data.id.size() <= 128
+        && data.queryText is string && data.queryText.size() <= 1000
+        && data.model is string && data.model.size() <= 100;
+    }
+
+    function isValidCrawlerLog(data) {
+      return data.keys().hasAll(['id', 'userAgent', 'isBot', 'createdAt'])
+        && data.id is string && data.id.size() <= 128
+        && data.userAgent is string && data.userAgent.size() <= 1000
+        && data.isBot is bool;
+    }
+
+    function isValidGeoScan(data) {
+      return data.keys().hasAll(['id', 'originalText', 'score', 'createdAt'])
+        && data.id is string && data.id.size() <= 128
+        && data.originalText is string && data.originalText.size() <= 50000
+        && data.score is number && data.score >= 0 && data.score <= 100;
+    }
+
+    // --- COLLECTION RULE MATCHERS ---
+
+    // 1. Brand collection
+    match /brands/{brandId} {
+      allow read: if isSignedIn();
+      allow create: if isEmailVerified() && isValidId(brandId) && isValidBrand(incoming()) && incoming().id == brandId;
+      allow update: if isEmailVerified() && isValidId(brandId) && isValidBrand(incoming())
+                       && incoming().id == existing().id;
+      allow delete: if isEmailVerified() && isValidId(brandId);
+    }
+
+    // 2. Audit Queries collection
+    match /auditQueries/{queryId} {
+      allow read: if isSignedIn();
+      allow create: if isEmailVerified() && isValidId(queryId) && isValidAuditQuery(incoming()) && incoming().id == queryId;
+      allow update: if isEmailVerified() && isValidId(queryId) && isValidAuditQuery(incoming()) 
+                       && incoming().id == existing().id && incoming().queryText == existing().queryText;
+      allow delete: if isEmailVerified() && isValidId(queryId);
+    }
+
+    // 3. Crawler Logs collection
+    match /crawlerLogs/{logId} {
+      allow read: if isSignedIn();
+      allow create: if isEmailVerified() && isValidId(logId) && isValidCrawlerLog(incoming()) && incoming().id == logId;
+      allow update: if isEmailVerified() && isValidId(logId) && isValidCrawlerLog(incoming())
+                       && incoming().id == existing().id;
+      allow delete: if isEmailVerified() && isValidId(logId);
+    }
+
+    // 4. GEO Content Scans collection
+    match /geoContentScans/{scanId} {
+      allow read: if isSignedIn();
+      allow create: if isEmailVerified() && isValidId(scanId) && isValidGeoScan(incoming()) && incoming().id == scanId;
+      allow update: if isEmailVerified() && isValidId(scanId) && isValidGeoScan(incoming())
+                       && incoming().id == existing().id && incoming().originalText == existing().originalText;
+      allow delete: if isEmailVerified() && isValidId(scanId);
+    }
+
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "LLMpulse",
+  "description": "System monitorowania, analizy i audytu marki w wyszukiwarkach AI (ChatGPT, Claude, Gemini, Perplexity) dla Cosibella.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

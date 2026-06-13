@@ -1,4 +1,4 @@
-# LLMpulse — Generative Engine Optimization (GEO/AEO) Platform for Cosibella
+# 🚀 LLMpulse — Generative Engine Optimization (GEO/AEO) Platform for Cosibella
 
 **LLMpulse** to zaawansowany system full-stack do monitorowania, analizy, audytu oraz optymalizacji widoczności marki **Cosibella** w konwersacyjnych silnikach wyszukiwania i modelach językowych (LLM) takich jak **ChatGPT (OpenAI), Claude (Anthropic), Gemini (Google) oraz Perplexity API**.
 
@@ -6,7 +6,7 @@ Aplikacja wspiera pozycjonowanie nowej generacji — **GEO (Generative Engine Op
 
 ---
 
-## Główne Kierunki Strategiczne i Moduły
+## 🗺️ Główne Kierunki Strategiczne i Moduły
 
 ### **Kierunek A: Panel Funkcjonalny (Najwyższy priorytet dla SEO/AEO)**
 
@@ -49,7 +49,7 @@ Aplikacja wspiera pozycjonowanie nowej generacji — **GEO (Generative Engine Op
 
 ---
 
-##  Architektura Technologiczna
+## 🛠️ Architektura Technologiczna
 
 Aplikacja została zaprojektowana w nowoczesnym stosie technologicznym **full-stack**:
 
@@ -60,7 +60,7 @@ Aplikacja została zaprojektowana w nowoczesnym stosie technologicznym **full-st
 
 ---
 
-##  Struktura Projektu
+## 📦 Struktura Projektu
 
 ```text
 ├── server.ts                 # Główny plik serwera Express (Vite Middleware w dev)
@@ -82,7 +82,7 @@ Aplikacja została zaprojektowana w nowoczesnym stosie technologicznym **full-st
 
 ---
 
-## Instrukcja Instalacji i Uruchomienia (Lokalnie lub na Serwerze)
+## 🚀 Instrukcja Instalacji i Uruchomienia (Lokalnie lub na Serwerze)
 
 ### Wymagania wstępne:
 * Zainstalowane środowisko **Node.js** (rekomendowana wersja `v18` lub nowsza).
@@ -118,7 +118,7 @@ Poniższa komenda uruchomi zintegrowany serwer Express i deweloperski kompilator
 npm run dev
 ```
 Serwer domyślnie nasłuchuje na porcie **3000**. Otwórz przeglądarkę i przejdź pod adres:
-`http://localhost:3000`
+👉 `http://localhost:3000`
 
 ### 4. Kompilacja do produkcji (Production Build)
 Gdy aplikacja jest gotowa do wdrożenia (np. na serwerze dedykowanym VPS, Heroku czy Google Cloud Run), przygotuj wersję zoptymalizowaną:
@@ -136,8 +136,50 @@ Po zbudowaniu projektu, możesz go odpalić tak, jak działa w środowisku chmur
 ```bash
 npm run start
 ```
+
+---
+
+## 🔐 Integracja z Firebase (Auth + Firestore) — Koszty i Informacje
+
+Podczas migracji aplikacji na produkcję i dodawania bazy danych oraz uwierzytelniania, pojawia się pytanie o koszty usług Firebase.
+
+### **Czy integracja z Firebase jest darmowa?**
+**Tak, na etapie testów, dewelopmentu i początkowego wzrostu Firebase jest w 100% darmowy.** 
+Firebase oferuje niezwykle hojny pakiet darmowy tzw. **Spark Plan (No-Cost)**, który odnawia się co miesiąc.
+
+### **Szczegółowe limity pakietu darmowego (Spark Plan):**
+
+1. **Firebase Authentication (Logowanie użytkowników):**
+   - **E-mail / Hasło:** Całkowicie **darmowe bez limitów**.
+   - **Logowanie Google / Facebook:** Całkowicie **darmowe bez limitów**.
+   - **Logowanie SMS (telefon):** 10 000 darmowych weryfikacji na miesiąc (potem $0.01 - $0.06 za SMS).
+
+2. **Cloud Firestore (Baza Danych NoSQL):**
+   - **Przechowywanie danych:** Do **1 GB** danych w chmurze (to wystarczy na tysiące artykułów, konfiguracji i historii zapytań).
+   - **Zapisy (Writes):** **20 000** operacji zapisu dziennie.
+   - **Odczyty (Reads):** **50 000** operacji odczytu dziennie.
+   - **Usuwanie (Deletes):** **20 000** operacji usunięcia dziennie.
+
+3. **Firebase Hosting (Serwowanie plików):**
+   - **Przechowywanie plików strony:** Do **10 GB**.
+   - **Transfer miesięczny:** Do **360 MB** dziennie (ok. 10 GB miesięcznie).
+
+---
+
+### **Co się stanie po przekroczeniu limitów? (Blaze Plan - Pay as you go)**
+Jeśli Twoja aplikacja odniesie duży sukces i przekroczysz darmowe limity, przechodzisz na model rozliczeń za rzeczywiste zużycie (**Blaze Plan**). System pobiera opłaty mikro-groszowe tylko za to, co rzeczywiście wykorzystasz powyżej darmowej puli:
+
+| Usługa Firebase | Cena ponad bezpłatny limit Spark | Przykład kosztu za masową skalę |
+| :--- | :--- | :--- |
+| **Firestore Zapisy** | $0.18 za 100 000 zapisów | Zapisanie 10k logów dziennie $\approx$ $0.05 / miesiąc |
+| **Firestore Odczyty** | $0.06 za 100 000 odczytów | Odczytanie 1 000 000 razy $\approx$ $0.60 |
+| **Firestore Przestrzeń** | $0.18 za każdy dodatkowy GB | Przechowanie 5 GB danych $\approx$ $0.72 / miesiąc |
+| **Hosting Transfer** | $0.15 za każdy dodatkowy GB | Wytransferowanie 50 GB $\approx$ $6.00 |
+
+**Podsumowanie:** Dla celów testowych i deweloperskich Cosibella nie zapłaci za Firebase ani grosza. Nawet po pełnym wdrożeniu do codziennej pracy dla zespołu kilkunastu specjalistów SEO, koszt ten najprawdopodobniej zamknie się w kwocie **0 - 5 USD miesięcznie**.
+
 ---
 
 ## 📄 Licencja
 
-**MIT License** dla repozytorium GitHub,
+Zalecamy wybór licencji **MIT License** dla repozytorium GitHub, ponieważ pozwala ona na dowolne, komercyjne modyfikowanie kodu przez programistów Cosibella, chroniąc jednocześnie prawa autorskie twórców bez skomplikowanych restrykcji prawnych.
