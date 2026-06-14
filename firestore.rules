@@ -1,8 +1,80 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Global Safety Net Catch-All: deny read/write by default
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
+    }
+
+    // Core validation helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isCosibellaEmail() {
+      return isSignedIn() && request.auth.token.email.toLowerCase().endsWith('@cosibella.pl');
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\+:]+$');
+    }
+
+    // Helper for validating global settings schemas
+    function isValidGoogleOAuthConfig(data) {
+      return data.keys().hasAll(['clientID', 'updatedAt']) 
+        && data.keys().size() <= 4
+        && data.clientID is string 
+        && data.clientID.size() <= 200
+        && data.updatedAt is string
+        && (!data.keys().hasAll(['updatedBy']) || data.updatedBy is string);
+    }
+
+    // Helper for validating AI Serper audit query results
+    function isValidAuditQuery(data) {
+      return data.keys().hasAll(['id', 'queryText', 'model', 'responseMarkdown', 'citations', 'score', 'detectedBrands', 'createdAt'])
+        && data.keys().size() <= 12
+        && data.id is string
+        && data.queryText is string
+        && data.queryText.size() <= 2000
+        && data.model is string
+        && data.responseMarkdown is string
+        && data.responseMarkdown.size() <= 30000
+        && data.citations is list
+        && data.score is number
+        && data.detectedBrands is list
+        && data.createdAt is string
+        && (!data.keys().hasAll(['country']) || data.country is string)
+        && (!data.keys().hasAll(['brand']) || data.brand is string);
+    }
+
+    // Google OAuth share config (Settings) rules
+    match /settings/{settingsId} {
+      allow read: if true; // Publicly readable so app can boot with client ID before signing into Firebase
+      allow create, update: if isValidId(settingsId) && isCosibellaEmail() && isValidGoogleOAuthConfig(request.resource.data);
+      allow delete: if false; // Google credentials must not be deleted through the client SDK
+    }
+
+    // SEO/SEM Audit query execution records rules
+    match /auditQueries/{queryId} {
+      allow read: if isCosibellaEmail();
+      allow create, update: if isCosibellaEmail() && isValidId(queryId) && isValidAuditQuery(request.resource.data);
+      allow delete: if isCosibellaEmail();
+    }
+
+    // Brand and SOV settings tracking
+    match /brands/{brandId} {
+      allow read, write: if isCosibellaEmail() && isValidId(brandId);
+    }
+
+    // Technical Crawler logs
+    match /crawlerLogs/{logId} {
+      allow read, write: if isCosibellaEmail() && isValidId(logId);
+    }
+
+    // GEO Content score optimizations
+    match /geoContentScans/{scanId} {
+      allow read, write: if isCosibellaEmail() && isValidId(scanId);
     }
   }
 }

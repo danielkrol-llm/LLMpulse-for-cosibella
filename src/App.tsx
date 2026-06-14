@@ -17,8 +17,10 @@ import SettingsTab from './components/SettingsTab';
 import GSCAnalyticsHub from './components/GSCAnalyticsHub';
 import SentinelSuite from './components/SentinelSuite';
 import { translations } from './translations';
-import { db, auth, googleProvider } from './firebase';
-import { onAuthStateChanged, signInWithPopup, signOut, User } from 'firebase/auth';
+import { db, auth, googleProvider } from './lib/firebase';
+import { User } from 'firebase/auth';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { LoginPage } from './components/LoginPage';
 
 import {
   Sparkles,
@@ -56,6 +58,14 @@ import {
 } from 'lucide-react';
 
 export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
+
+function AppContent() {
   const [lang, setLang] = useState<'pl' | 'en'>('pl');
   const t = translations[lang];
 
@@ -128,49 +138,44 @@ export default function App() {
     setConsoleLogs((prev) => [`[${timestamp}] ${text}`, ...prev.slice(0, 15)]);
   };
 
-  // Firebase Auth state session tracking and triggers
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [authInitialized, setAuthInitialized] = useState(false);
+  const { currentUser, authInitialized, signInWithGoogle, logout, authError } = useAuth();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (usr) => {
-      setCurrentUser(usr);
-      setAuthInitialized(true);
-      if (usr) {
+    if (authInitialized) {
+      if (currentUser) {
         addConsoleLog(lang === 'pl'
-          ? `Sesja aktywna: zalogowano jako ${usr.email}`
-          : `Session active: authenticated as ${usr.email}`
+          ? `Sesja aktywna: zalogowano jako ${currentUser.email}`
+          : `Session active: authenticated as ${currentUser.email}`
         );
       } else {
         addConsoleLog(lang === 'pl'
-          ? 'Baza danych: Połącz się z Firebase, aby pisać i synchronizować dane w chmurze'
-          : 'Database: Connection to Firebase Auth inactive. Offline state.'
+          ? 'Baza danych: Uwierzytelnij się kontem @cosibella.pl'
+          : 'Database: Please authenticate with @cosibella.pl workspace account'
         );
       }
-    });
-    return () => unsubscribe();
-  }, [lang]);
+    }
+  }, [currentUser, authInitialized, lang]);
 
   const handleGoogleSignIn = async () => {
     try {
       addConsoleLog(lang === 'pl' ? 'Inicjowanie okna logowania Google OAuth...' : 'Launching Google OAuth authorization flow...');
-      const res = await signInWithPopup(auth, googleProvider);
+      await signInWithGoogle();
       addConsoleLog(lang === 'pl'
-        ? `Uwierzytelniono pomyślnie: witaj ${res.user.displayName || res.user.email}!`
-        : `Authentication successful: Welcome ${res.user.displayName || res.user.email}!`
+        ? `Uwierzytelniono pomyślnie!`
+        : `Authentication successful!`
       );
     } catch (err: any) {
       console.error('Sign-in error:', err);
       addConsoleLog(lang === 'pl'
-        ? `Błąd uwierzytelniania Firestore: ${err.message}`
-        : `Firestore Authentication state failed: ${err.message}`
+        ? `Błąd uwierzytelniania: ${err.message || err}`
+        : `Authentication failed: ${err.message || err}`
       );
     }
   };
 
   const handleSignOut = async () => {
     try {
-      await signOut(auth);
+      await logout();
       addConsoleLog(lang === 'pl' ? 'Sesja Firebase zamknięta pomyślnie.' : 'Firebase session closed successfully.');
     } catch (err: any) {
       console.error('Sign-out error:', err);
@@ -313,6 +318,22 @@ export default function App() {
   const currentCountryConfig = geoSelectedCountry !== 'ALL' && dashboardData?.countriesMetadata
     ? dashboardData.countriesMetadata[geoSelectedCountry]
     : null;
+
+  if (!authInitialized) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center font-mono text-cyan-400 gap-3">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-cyan-400"></div>
+        <div className="text-center flex flex-col gap-1 items-center">
+          <p className="text-xs">Uruchamianie systemów zabezpieczeń Cosibella...</p>
+          <span className="text-[10px] text-slate-500 animate-pulse">Weryfikacja tożsamości w toku</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return <LoginPage />;
+  }
 
   return (
     <div className="min-h-screen bg-[#0B0C10] text-slate-300 font-sans flex flex-col justify-between">

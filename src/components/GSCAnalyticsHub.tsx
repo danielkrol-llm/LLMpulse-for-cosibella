@@ -16,8 +16,15 @@ import {
   Download, 
   FileText,
   BadgeAlert,
-  ArrowRight
+  ArrowRight,
+  Key,
+  HelpCircle,
+  Copy,
+  Users,
+  ShieldCheck
 } from 'lucide-react';
+import { db } from '../firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 // Static seed data modeling real performance metrics for Cosibella.pl
 const SAMPLE_GSC_DATA = [
@@ -65,8 +72,42 @@ export default function GSCAnalyticsHub({ lang, onAddLogMessage, onAuditQueryInS
   const [fetchedGscData, setFetchedGscData] = useState<any[] | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // User custom client ID state
+  const [customClientID, setCustomClientID] = useState<string>(() => {
+    return localStorage.getItem('google_custom_client_id') || '';
+  });
+  const [showOAuthInstructions, setShowOAuthInstructions] = useState(!localStorage.getItem('google_custom_client_id'));
+  const [copiedRedirectURI, setCopiedRedirectURI] = useState(false);
+  const [isSavingGlobal, setIsSavingGlobal] = useState(false);
+  const [globalClientLoaded, setGlobalClientLoaded] = useState(false);
+
   // Schema state template helper
   const [copiedSchemaId, setCopiedSchemaId] = useState<string | null>(null);
+
+  // Load Global Client ID from cloud Firestore on mount
+  useEffect(() => {
+    const fetchGlobalGoogleConfig = async () => {
+      try {
+        const docRef = doc(db, 'settings', 'google_oauth_config');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const cloudID = docSnap.data().clientID;
+          if (cloudID && cloudID !== customClientID) {
+            setCustomClientID(cloudID);
+            localStorage.setItem('google_custom_client_id', cloudID);
+            onAddLogMessage(lang === 'pl'
+              ? 'Wykryto i wczytano wspólny, globalny Google Client ID z bazy danych Firestore!'
+              : 'Detected and loaded shared Google Client ID from Firestore database!'
+            );
+          }
+          setGlobalClientLoaded(true);
+        }
+      } catch (e) {
+        console.warn('Could not load global Client ID from Firestore (likely not defined yet):', e);
+      }
+    };
+    fetchGlobalGoogleConfig();
+  }, []);
 
   // Check if token already exists in localStorage on mount
   useEffect(() => {
@@ -80,6 +121,43 @@ export default function GSCAnalyticsHub({ lang, onAddLogMessage, onAuditQueryInS
       );
     }
   }, []);
+
+  const handleSaveGlobalClientID = async () => {
+    const trimmed = customClientID.trim();
+    if (!trimmed || trimmed.includes('xxxx')) {
+      alert(lang === 'pl' 
+        ? 'Wprowadź prawidłowy identyfikator klienta Google OAuth przed zapisaniem!' 
+        : 'Please enter a valid Google OAuth Client ID before saving!'
+      );
+      return;
+    }
+    setIsSavingGlobal(true);
+    try {
+      const docRef = doc(db, 'settings', 'google_oauth_config');
+      await setDoc(docRef, {
+        clientID: trimmed,
+        updatedAt: new Date().toISOString(),
+        updatedBy: localStorage.getItem('last_user_email') || 'User'
+      });
+      localStorage.setItem('google_custom_client_id', trimmed);
+      onAddLogMessage(lang === 'pl'
+        ? 'Pomyślnie zapisano wspólny Google Client ID w bazie danych Firestore dla zespołu!'
+        : 'Saved shared Google Client ID successfully to Cloud Firestore database for your team!'
+      );
+      alert(lang === 'pl'
+        ? 'Sukces! Identyfikator zapisany jako domyślny dla wszystkich pracowników Cosibella. Każdy tester otrzyma go teraz automatycznie.'
+        : 'Success! Shared Client ID is now persisted globally in Firestore. Every teammate will automatically use it.'
+      );
+    } catch (error: any) {
+      console.error(error);
+      alert(lang === 'pl' 
+        ? 'Błąd zapisu w Firestore (Upewnij się, że jesteś zalogowany lub uprawniony): ' + error.message 
+        : 'Firestore database write failed: ' + error.message
+      );
+    } finally {
+      setIsSavingGlobal(false);
+    }
+  };
 
   // Handle client-side implicit URL hash parser (if redirected from Google OAuth)
   useEffect(() => {
@@ -103,12 +181,26 @@ export default function GSCAnalyticsHub({ lang, onAddLogMessage, onAuditQueryInS
   }, []);
 
   const handleGoogleConnect = async () => {
+    const trimmedClientId = customClientID.trim();
+    if (!trimmedClientId || trimmedClientId.includes('xxxx')) {
+      setAuthLoading(false);
+      onAddLogMessage(lang === 'pl' 
+        ? 'Błąd: Twój Google Client ID zawiera znaki zastępcze lub jest pusty. Wprowadź poprawny Client ID z Google Cloud Console.' 
+        : 'Error: Placeholder or empty Google Client ID detected. Paste your actual credentials client ID first.'
+      );
+      alert(lang === 'pl'
+        ? 'Błąd 401: invalid_client można rozwiązać, wklejając swój autentyczny Google Client ID w sekcji instrukcji OAuth poniżej!'
+        : 'Error 401: invalid_client can be resolved by pasting your genuine Google Client ID in the OAuth setup area below!'
+      );
+      setShowOAuthInstructions(true);
+      return;
+    }
+
     setAuthLoading(true);
     addLog(lang === 'pl' ? 'Inicjowanie okna Google Consent OAuth 2.0 Web...' : 'Launching Google consent popup redirect...');
 
     // Since this is a SPA on GitHub Pages, we construct a standard Implicit Flow authorization URL.
     // This allows authenticating the user and returning straight here via Hash parameter.
-    const clientID = '924193647487-xxxxxxxxxxxxxxxxxx.apps.googleusercontent.com'; // Customizable by user or system placeholder
     const redirectUri = window.location.origin + window.location.pathname;
     const scopes = [
       'https://www.googleapis.com/auth/webmasters.readonly',
@@ -116,7 +208,7 @@ export default function GSCAnalyticsHub({ lang, onAddLogMessage, onAuditQueryInS
     ].join(' ');
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` + new URLSearchParams({
-      client_id: clientID,
+      client_id: trimmedClientId,
       redirect_uri: redirectUri,
       response_type: 'token',
       scope: scopes,
@@ -228,6 +320,129 @@ export default function GSCAnalyticsHub({ lang, onAddLogMessage, onAuditQueryInS
           )}
         </div>
       </div>
+
+      {/* Google OAuth Credentials Configuration Step */}
+      {!googleConnected && (
+        <div className="p-5 border border-slate-800 rounded-xl bg-[#0f121a]/80 backdrop-blur space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Key className="w-4 h-4 text-violet-400 font-bold shrink-0" />
+              <span>
+                {lang === 'pl' ? 'Konfiguracja Połączenia Google (Rozwiązanie błędu 401)' : 'Google OAuth Configuration (Resolving Error 401)'}
+              </span>
+            </h3>
+            <button 
+              onClick={() => setShowOAuthInstructions(!showOAuthInstructions)}
+              className="text-xs text-cyan-400 hover:text-cyan-300 font-mono underline cursor-pointer"
+            >
+              {showOAuthInstructions 
+                ? (lang === 'pl' ? 'Ukryj instrukcję' : 'Hide Setup') 
+                : (lang === 'pl' ? 'Pokaż instrukcję konfiguracji' : 'Show Setup Instructions')
+              }
+            </button>
+          </div>
+
+          {(showOAuthInstructions || !customClientID || customClientID.includes('xxxx')) && (
+            <div className="space-y-4 text-xs text-slate-300 border-t border-slate-800/85 pt-4 leading-relaxed">
+              <div className="bg-amber-950/20 text-amber-300 border border-amber-900/30 p-3 rounded-lg flex gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                <span>
+                  {lang === 'pl'
+                    ? 'Błąd "401: invalid_client" występuje, ponieważ domyślny Client ID jest tylko tymczasowym szablonem. Google wymaga, aby każda niezależna kopia aplikacji posiadała swój własny Client ID OAuth połączony z poprawnym adresem przekierowania.'
+                    : 'The "401: invalid_client" error occurs because the placeholder Client ID is a temporary template. Google requires custom Client IDs configured to exact web redirect URIs.'
+                  }
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <span className="block font-bold text-slate-200">
+                    Krok 1: Wygeneruj Google Client ID
+                  </span>
+                  <p className="text-slate-400">
+                    {lang === 'pl'
+                      ? 'Zaloguj się do Google Cloud Console, przejdź do "Interfejsy API i usługi > Dane logowania". Utwórz nowy "Identyfikator klienta OAuth" typu "Aplikacja internetowa".'
+                      : 'Log in to Google Cloud, go to "APIs & Services > Credentials". Create new "OAuth client ID" of type "Web application".'
+                    }
+                  </p>
+                  <label className="block text-slate-400 mt-2 font-mono text-[11px]">
+                    {lang === 'pl' ? 'Twój Client ID z Google Cloud Console:' : 'Your Client ID from Google Cloud Console:'}
+                  </label>
+                  <input
+                    type="text"
+                    value={customClientID}
+                    onChange={(e) => {
+                      setCustomClientID(e.target.value);
+                      localStorage.setItem('google_custom_client_id', e.target.value);
+                    }}
+                    placeholder="924193647487-skjhf82hgf...apps.googleusercontent.com"
+                    className="w-full bg-[#080a0f] border border-slate-700 rounded px-3 py-2 text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-cyan-500"
+                  />
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1">
+                    <p className="text-[10px] text-slate-500 italic">
+                      {lang === 'pl'
+                        ? 'Wskazówka: Zmiany zapisują się automatycznie w Twojej przeglądarce.'
+                        : 'Tip: Changes are instantly saved inside your local browser storage.'
+                      }
+                    </p>
+                    {customClientID && !customClientID.includes('xxxx') && (
+                      <button
+                        type="button"
+                        onClick={handleSaveGlobalClientID}
+                        disabled={isSavingGlobal}
+                        className="flex items-center justify-center gap-1.5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-cyan-300 hover:text-white bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-800/50 rounded transition cursor-pointer self-start"
+                      >
+                        <Users className="w-3" />
+                        {isSavingGlobal 
+                          ? (lang === 'pl' ? 'Zapisywanie...' : 'Saving...')
+                          : (lang === 'pl' ? 'Udostępnij całemu zespołowi' : 'Share with team (Firestore)')
+                        }
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="block font-bold text-slate-200">
+                    Krok 2: Dodaj Autoryzowany adres URI przekierowania
+                  </span>
+                  <p className="text-slate-400">
+                    {lang === 'pl'
+                      ? 'Dokładnie skopiuj i wklej poniższy adres w sekcji "Autoryzowane URI przekierowania" (Authorized redirect URIs) w Google Cloud Console:'
+                      : 'Exactly copy and paste the following address under "Authorized redirect URIs" in your Google Cloud Console Client ID:'
+                    }
+                  </p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={window.location.origin + window.location.pathname}
+                      className="flex-1 bg-[#080a0f] border border-slate-700/80 rounded px-3 py-2 text-slate-300 font-mono text-[10px] select-all cursor-text focus:outline-none"
+                    />
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(window.location.origin + window.location.pathname);
+                        setCopiedRedirectURI(true);
+                        setTimeout(() => setCopiedRedirectURI(false), 2000);
+                        addLog(lang === 'pl' ? 'Skopiowano adres URI przekierowania do schowka!' : 'Redirect URI copied to clipboard!');
+                      }}
+                      className="px-3 py-2 bg-slate-800 hover:bg-slate-705 border border-slate-700 rounded text-cyan-400 hover:text-white transition cursor-pointer text-center font-bold flex items-center justify-center"
+                    >
+                      {copiedRedirectURI ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-500 italic leading-normal">
+                    {lang === 'pl'
+                      ? 'Google weryfikuje ten adres ze stopniem dokładności 100%. Jeśli adres w Google Cloud i aktualny URL aplikacji nie są identyczne, Google wyświetli błąd przekierowania.'
+                      : 'Google strictly verifies redirect redirect URIs. If the URL registered on GCP and your current URL do not match, the authorization will be denied.'
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tabs list inside Hub */}
       <div className="flex items-center gap-1 border-b border-slate-800 pb-px">

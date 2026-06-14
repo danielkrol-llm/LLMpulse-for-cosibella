@@ -66,6 +66,17 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "originalText", "score", "createdAt"]
+    },
+    "GoogleOAuthConfig": {
+      "title": "GoogleOAuthConfig",
+      "description": "Shared Google Client ID config for authentication",
+      "type": "object",
+      "properties": {
+        "clientID": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["clientID", "updatedAt"]
     }
   },
   "firestore": {
@@ -84,6 +95,10 @@
     "/geoContentScans/{scanId}": {
       "schema": "GeoContentScan",
       "description": "Content optimization history results"
+    },
+    "/settings/{settingsId}": {
+      "schema": "GoogleOAuthConfig",
+      "description": "Shared application settings configuration"
     }
   }
 }
