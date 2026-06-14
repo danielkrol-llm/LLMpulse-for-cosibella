@@ -325,11 +325,18 @@ export default function GA4SyncTab({
           </p>
 
           {syncError && (
-            <div className="p-3 bg-rose-950/20 text-rose-400 border border-rose-900/40 text-[10px] rounded-lg flex items-start gap-2 max-w-xl">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
-              <div className="space-y-0.5 font-sans leading-relaxed">
-                <strong className="block font-mono text-[9px] uppercase">{lang === 'pl' ? 'Błąd pobierania raportu' : 'Report Extraction Error'}</strong>
-                <span>{syncError}</span>
+            <div className="p-3 bg-rose-950/20 text-rose-400 border border-rose-900/40 text-[11px] rounded-lg flex items-start gap-2 max-w-xl">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
+              <div className="space-y-1 font-sans leading-relaxed">
+                <strong className="block font-mono text-[9px] uppercase tracking-wider text-rose-300">
+                  {lang === 'pl' ? 'DANE Z OSTATNIEJ SYNCHRONIZACJI (PAMIĘĆ PODRĘCZNA AKTYWNA)' : 'FALLBACK TO LAST SUCCESSFUL SYNCHRONIZATION (CACHE ACTIVE)'}
+                </strong>
+                <p className="text-slate-350 text-[10.5px]">
+                  {lang === 'pl'
+                    ? `Z powodu błędu autoryzacji lub połączenia API (${syncError}), wyświetlamy zarchiwizowane dane z ostatniej stabilnej sesji, aby zapobiec przerwaniu pracy.`
+                    : `Due to an API connection or authorization issue (${syncError}), we are showing archived data from the last stable session to prevent downtime.`
+                  }
+                </p>
               </div>
             </div>
           )}
@@ -396,8 +403,8 @@ export default function GA4SyncTab({
       </div>
 
       {/* 2. CORE KPI MATRIX BENTO CARDS */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 border border-slate-850 rounded-xl bg-[#0f121a]/60 space-y-1 relative group hover:border-slate-700 transition">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 w-full min-w-0 overflow-hidden">
+        <div className="p-4 border border-slate-850 rounded-xl bg-[#0f121a]/60 space-y-1 relative group hover:border-slate-700 transition min-w-0">
           <span className="text-[9px] text-slate-500 tracking-wider font-bold block uppercase">{lang === 'pl' ? 'Całkowite Sesje AI (30d)' : 'Total AI Sessions (30d)'}</span>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-extrabold text-cyan-400 tracking-tight">{totalSessionsCount.toLocaleString()}</span>

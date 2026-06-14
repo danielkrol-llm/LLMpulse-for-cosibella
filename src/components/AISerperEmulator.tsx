@@ -684,7 +684,7 @@ export default function AISerperEmulator({
           <div className="px-3.5 py-1.5 rounded-lg bg-[#0e1117] border border-slate-800 text-center min-w-[85px]">
             <span className="text-[8px] uppercase tracking-wider text-slate-505 block font-bold">SOV AVG</span>
             <span className="text-xs font-bold text-cyan-400 font-mono tracking-wide mt-0.5 inline-block">
-              {stats.averageMentionRate > 0 ? `${stats.averageMentionRate}%` : '—'}
+              {stats.totals > 0 ? `${stats.averageMentionRate}%` : '—'}
             </span>
           </div>
           <div className="px-3.5 py-1.5 rounded-lg bg-[#0e1117] border border-slate-800 text-center min-w-[85px]">
@@ -1033,7 +1033,7 @@ export default function AISerperEmulator({
                   <button
                     onClick={handleRunBatch}
                     disabled={isBatchRunning}
-                    className="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded-xl cursor-pointer text-xs"
+                    className="w-full py-3 px-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded-xl cursor-pointer text-[11px] sm:text-xs overflow-visible whitespace-nowrap shrink-0"
                   >
                     {isBatchRunning ? 'Running diagnostics...' : 'Run Bulk Benchmark'}
                   </button>

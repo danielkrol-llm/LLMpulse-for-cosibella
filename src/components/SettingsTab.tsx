@@ -260,7 +260,7 @@ export default function SettingsTab({ lang, onAddLogMessage }: SettingsTabProps)
             <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-widest bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
               System Console Config
             </span>
-            <span className="text-xs text-cyan-300 font-mono">Environment Status: Sandbox Sandbox Active</span>
+            <span className="text-xs text-cyan-300 font-mono">Environment Status: Sandbox Active</span>
           </div>
           <h2 className="text-lg font-bold text-white tracking-tight">
             {lang === 'pl' ? 'Zarządzanie Połączeniami API i Źródłami Logów Serwera' : 'API Connection Keys & Server Access Logs Config'}

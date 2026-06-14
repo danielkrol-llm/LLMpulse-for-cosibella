@@ -352,7 +352,11 @@ function AppContent() {
                 </span>
               </div>
               <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
-                {lang === 'pl' ? 'Widoczność Marek w AI i Konsola SEO dla **Cosibella.pl**' : 'AI Brand Visibility & SEO Search Console for **Cosibella.pl**'}
+                {lang === 'pl' ? (
+                  <>Widoczność Marek w AI i Konsola SEO dla <strong className="font-extrabold text-white">Cosibella.pl</strong></>
+                ) : (
+                  <>AI Brand Visibility & SEO Search Console for <strong className="font-extrabold text-white">Cosibella.pl</strong></>
+                )}
               </span>
             </div>
           </div>
@@ -802,10 +806,16 @@ function AppContent() {
           </aside>
 
           {/* Right Main Content Panel (Takes 3/4 width) */}
-          <div className="lg:col-span-3 space-y-8">
+          <div className="lg:col-span-3 space-y-8 min-w-0 w-full">
 
-            {/* GOOGLE SEARCH CONSOLE STYLE PILL FILTER BAR */}
-            <div id="gsc-style-toolbar" className="bg-[#0F1115] rounded-xl border border-slate-800 p-3.5 flex flex-wrap items-center justify-between gap-3 relative select-none">
+            {/* VIEW CONDITIONAL RENDERS */}
+            
+            {/* VIEW A: D_A_S_H_B_O_A_R_D view tab */}
+            {activeTab === 'DASHBOARD' && dashboardData && (
+              <div className="space-y-8 animate-linear duration-200">
+
+                {/* GOOGLE SEARCH CONSOLE STYLE PILL FILTER BAR */}
+                <div id="gsc-style-toolbar" className="bg-[#0F1115] rounded-xl border border-slate-800 p-3.5 flex flex-wrap items-center justify-between gap-3 relative select-none">
               <div className="flex items-center flex-wrap gap-2">
                 {/* static search type GSC pill */}
                 <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#151921] border border-slate-800 rounded-full text-xs font-semibold text-slate-300">
@@ -923,16 +933,16 @@ function AppContent() {
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                 <span>{t.gsc_toolbar.liveStatus}</span>
                 <span className="text-slate-600">|</span>
-                <span className="text-cyan-400 font-bold">{t.gsc_toolbar.utcTime}: 2026-06-12</span>
+                <span className="text-cyan-400 font-bold">{t.gsc_toolbar.utcTime} 2026-06-12</span>
               </div>
             </div>
 
         {/* 4. MAIN CORE STATS CARD ROW */}
         {dashboardData && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 w-full min-w-0 overflow-hidden">
             
             {/* Global LLM Visibility Score Card (GLVS) */}
-            <div className="bg-[#151921] rounded-2xl border border-slate-800 p-5 shadow-sm hover:border-slate-700 transition duration-300">
+            <div className="bg-[#151921] rounded-2xl border border-slate-800 p-5 shadow-sm hover:border-slate-700 transition duration-300 min-w-0">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase tracking-widest font-mono font-bold text-slate-400">{t.metrics.globalScore}</span>
                 <span className="text-[10px] bg-emerald-950/40 text-emerald-400 font-bold px-1.5 py-0.5 rounded-sm flex items-center gap-0.5 leading-none border border-emerald-900/40">
@@ -953,7 +963,7 @@ function AppContent() {
             </div>
 
             {/* AI Share of Voice (AI-SOV) Card */}
-            <div className="bg-[#151921] rounded-2xl border border-slate-800 p-5 shadow-sm hover:border-slate-700 transition duration-300">
+            <div className="bg-[#151921] rounded-2xl border border-slate-800 p-5 shadow-sm hover:border-slate-700 transition duration-300 min-w-0">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase tracking-widest font-mono font-bold text-slate-400">{t.metrics.shareOfVoice}</span>
                 <span className="text-[9px] uppercase tracking-wider font-mono font-bold text-cyan-400 bg-cyan-950/40 border border-cyan-900/50 px-1.5 py-0.5 rounded-sm leading-none">
@@ -973,7 +983,7 @@ function AppContent() {
             </div>
 
             {/* Category Authority Score averages */}
-            <div className="bg-[#151921] rounded-2xl border border-slate-800 p-5 shadow-sm hover:border-slate-700 transition duration-300">
+            <div className="bg-[#151921] rounded-2xl border border-slate-800 p-5 shadow-sm hover:border-slate-700 transition duration-300 min-w-0">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase tracking-widest font-mono font-bold text-slate-400">{t.metrics.sectionAuthority}</span>
                 <span className="text-[9px] font-semibold text-cyan-400 bg-cyan-950/20 border border-cyan-900/30 px-1.5 py-0.5 rounded-sm flex items-center gap-0.5 leading-none">
@@ -986,17 +996,29 @@ function AppContent() {
                 </span>
                 <span className="text-xs text-slate-500">{lang === 'pl' ? 'autorytet transakcyjny' : 'transactional authority'}</span>
               </div>
-              <div className="grid grid-cols-4 gap-1 mt-3 text-[9px] font-mono text-slate-400 font-bold select-none text-center">
-                <div title="Transactional authority index" className="bg-slate-900 rounded-lg py-0.5 px-0.5 border border-slate-800 text-cyan-400">{t.metrics.trans}:{dashboardData.metrics.categoryScores?.transactional}%</div>
-                <div title="Conversational authority index" className="bg-slate-900 rounded-lg py-0.5 px-0.5 border border-slate-800 text-cyan-400">{t.metrics.conv}:{dashboardData.metrics.categoryScores?.conversational}%</div>
-                <div title="Comparison authority index" className="bg-slate-900 rounded-lg py-0.5 px-0.5 border border-slate-800 text-cyan-400">{t.metrics.comp}:{dashboardData.metrics.categoryScores?.comparison}%</div>
-                <div title="Recommendation authority index" className="bg-slate-900 rounded-lg py-0.5 px-0.5 border border-slate-800 text-cyan-400">{t.metrics.rec}:{dashboardData.metrics.categoryScores?.recommendation}%</div>
+              <div className="mt-3.5 space-y-1.5 font-mono text-[10px] text-slate-300">
+                <div className="flex items-center justify-between border-b border-slate-800/80 pb-1">
+                  <span>{t.metrics.trans}:</span>
+                  <span className="text-cyan-400 font-extrabold">{dashboardData.metrics.categoryScores?.transactional}%</span>
+                </div>
+                <div className="flex items-center justify-between border-b border-slate-800/80 pb-1">
+                  <span>{t.metrics.conv}:</span>
+                  <span className="text-cyan-400 font-extrabold">{dashboardData.metrics.categoryScores?.conversational}%</span>
+                </div>
+                <div className="flex items-center justify-between border-b border-slate-800/80 pb-1">
+                  <span>{t.metrics.comp}:</span>
+                  <span className="text-cyan-400 font-extrabold">{dashboardData.metrics.categoryScores?.comparison}%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>{t.metrics.rec}:</span>
+                  <span className="text-cyan-400 font-extrabold">{dashboardData.metrics.categoryScores?.recommendation}%</span>
+                </div>
               </div>
               <p className="text-[10px] text-slate-450 mt-2">{t.metrics.sectionAuthorityDesc}</p>
             </div>
 
             {/* Total Localized Queries index */}
-            <div className="bg-[#151921] rounded-2xl border border-slate-800 p-5 shadow-sm hover:border-slate-700 transition duration-300">
+            <div className="bg-[#151921] rounded-2xl border border-slate-800 p-5 shadow-sm hover:border-slate-700 transition duration-300 min-w-0">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase tracking-widest font-mono font-bold text-slate-400">{t.metrics.crawlCoverage}</span>
                 <span className="text-[10px] bg-slate-900 text-slate-300 font-bold px-1.5 py-0.5 rounded-sm leading-none border border-slate-800">
@@ -1017,12 +1039,6 @@ function AppContent() {
 
           </div>
         )}
-
-        {/* VIEW CONDITIONAL RENDERS */}
-        
-        {/* VIEW A: D_A_S_H_B_O_A_R_D view tab */}
-        {activeTab === 'DASHBOARD' && dashboardData && (
-          <div className="space-y-8 animate-linear duration-200">
             
             {/* Row index maps + charts component bento */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">

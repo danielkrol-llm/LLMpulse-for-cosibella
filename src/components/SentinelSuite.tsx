@@ -335,7 +335,7 @@ export default function SentinelSuite({ lang, onAddLogMessage }: { lang: 'pl' | 
                 <button
                   onClick={handleRunFullContentAudit}
                   disabled={isAuditingLive}
-                  className="w-full py-2.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:opacity-95 text-white font-bold font-mono text-xs cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full py-2.5 px-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:opacity-95 text-white font-bold font-mono text-[11px] sm:text-xs cursor-pointer flex items-center justify-center gap-2 overflow-visible whitespace-nowrap shrink-0"
                 >
                   {isAuditingLive ? (
                     <>

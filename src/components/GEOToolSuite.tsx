@@ -896,7 +896,7 @@ export default function GEOToolSuite({ lang, onAddLogMessage }: GEOToolSuiteProp
               <button
                 onClick={handleScoreContent}
                 disabled={isScoring}
-                className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white border border-indigo-400/20 shadow-lg font-bold text-xs font-mono tracking-wide transition cursor-pointer flex items-center justify-center gap-1.5"
+                className="w-full py-2.5 px-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white border border-indigo-400/20 shadow-lg font-bold text-[11px] sm:text-xs font-mono tracking-wide transition cursor-pointer flex items-center justify-center gap-1.5 overflow-visible whitespace-nowrap shrink-0"
               >
                 {isScoring ? (
                   <>

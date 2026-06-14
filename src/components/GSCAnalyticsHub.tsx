@@ -852,9 +852,19 @@ export default function GSCAnalyticsHub({ lang, onAddLogMessage, onAuditQueryInS
                 </p>
 
                 {ga4Error && (
-                  <div className="p-2 sm:p-3 bg-rose-950/20 text-rose-400 border border-rose-900/30 text-[10px] rounded-lg mt-1 flex items-start gap-2 max-w-sm">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    <span>{ga4Error}</span>
+                  <div className="p-2 sm:p-3 bg-rose-950/20 text-rose-400 border border-rose-905/30 text-[11px] rounded-lg mt-1 flex items-start gap-2 max-w-sm">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
+                    <div className="space-y-1 font-sans leading-relaxed">
+                      <strong className="block font-mono text-[9px] uppercase tracking-wider text-rose-300">
+                        {lang === 'pl' ? 'DANE SYNCHRONIZACJI COSIBELI (PAMIĘĆ PODRĘCZNA)' : 'COSIBELA METRICS REVERT (CACHE ACTIVE)'}
+                      </strong>
+                      <p className="text-slate-350 text-[10px]">
+                        {lang === 'pl'
+                          ? `Wyświetlamy dane archiwalne ze schowka. Kod błędu połączenia API: ${ga4Error}.`
+                          : `Loaded historical cached backups from system storage. Connection error code: ${ga4Error}.`
+                        }
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
