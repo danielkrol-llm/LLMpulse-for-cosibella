@@ -145,7 +145,7 @@ export default function GA4SyncTab({
             filter: {
               fieldName: 'sessionSourceMedium',
               stringFilter: {
-                matchType: 'REGEXP',
+                matchType: 'FULL_REGEXP',
                 value: regexValue
               }
             }
@@ -168,7 +168,7 @@ export default function GA4SyncTab({
             filter: {
               fieldName: 'sessionSourceMedium',
               stringFilter: {
-                matchType: 'REGEXP',
+                matchType: 'FULL_REGEXP',
                 value: regexValue
               }
             }

@@ -137,7 +137,7 @@ export default function GSCAnalyticsHub({ lang, onAddLogMessage, onAuditQueryInS
             filter: {
               fieldName: 'sessionSourceMedium',
               stringFilter: {
-                matchType: 'REGEXP',
+                matchType: 'FULL_REGEXP',
                 value: regexValue
               }
             }
@@ -160,7 +160,7 @@ export default function GSCAnalyticsHub({ lang, onAddLogMessage, onAuditQueryInS
             filter: {
               fieldName: 'sessionSourceMedium',
               stringFilter: {
-                matchType: 'REGEXP',
+                matchType: 'FULL_REGEXP',
                 value: regexValue
               }
             }
