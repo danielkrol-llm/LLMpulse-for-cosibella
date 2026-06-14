@@ -356,17 +356,31 @@ export default function GA4SyncTab({
           <div className="space-y-1 w-full sm:w-auto">
             <span className="text-[8px] text-slate-500 font-bold block uppercase tracking-wider">{lang === 'pl' ? 'IDENTYFIKATOR USŁUGI GA4:' : 'GA4 PROPERTY ID:'}</span>
             <div className="flex gap-1.5">
-              <input
-                type="text"
-                value={ga4PropertyID}
-                onChange={(e) => {
-                  const cleaned = e.target.value.replace(/\D/g, '');
-                  setGa4PropertyID(cleaned);
-                  localStorage.setItem('google_ga4_property_id', cleaned);
-                }}
-                className="w-full sm:w-32 text-xs font-bold bg-[#141822] border border-slate-800 rounded p-2 text-cyan-400 focus:outline-none focus:border-cyan-500 text-center"
-                placeholder="e.g. 319652441"
-              />
+               <div className="relative">
+                <input
+                  type="text"
+                  value={ga4PropertyID}
+                  onChange={(e) => {
+                    const cleaned = e.target.value.trim();
+                    setGa4PropertyID(cleaned);
+                    localStorage.setItem('google_ga4_property_id', cleaned);
+                  }}
+                  className="w-full sm:w-44 text-xs font-bold bg-[#141822] border border-slate-800 rounded p-2 text-cyan-400 focus:outline-none focus:border-cyan-500 text-center"
+                  placeholder="e.g. 319652441"
+                />
+                {ga4PropertyID && (ga4PropertyID.startsWith('G-') || /[^0-9]/.test(ga4PropertyID)) && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 p-2 bg-rose-955 bg-[#2D0D12] text-rose-300 text-[9px] rounded border border-rose-900/60 leading-normal max-w-xs shadow-xl">
+                    <p className="font-extrabold text-rose-300">
+                      {lang === 'pl' ? '⚠️ Identyfikator strumienia' : '⚠️ Stream ID detected'}
+                    </p>
+                    <p className="text-[9px] text-rose-350">
+                      {lang === 'pl' 
+                        ? 'To jest kod śledzenia G-xxx (klient). Potrzebujesz cyfrowego ID usługi z Ustawień usługi GA4 (np. 319652441).'
+                        : 'Query API requires numeric Property ID (e.g. 319652441).'}
+                    </p>
+                  </div>
+                )}
+              </div>
               {googleConnected && (
                 <button
                   onClick={() => fetchLiveAnalytics(accessToken!, ga4PropertyID)}

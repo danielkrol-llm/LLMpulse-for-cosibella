@@ -287,7 +287,7 @@ export default function GSCAnalyticsHub({ lang, onAddLogMessage, onAuditQueryInS
     return trendPoints;
   };
 
-  // Load Global Client ID from cloud Firestore on mount
+  // Load Global Client ID and GA4 Property ID from cloud Firestore on mount
   useEffect(() => {
     const fetchGlobalGoogleConfig = async () => {
       try {
@@ -301,6 +301,15 @@ export default function GSCAnalyticsHub({ lang, onAddLogMessage, onAuditQueryInS
             onAddLogMessage(lang === 'pl'
               ? 'Wykryto i wczytano wspólny, globalny Google Client ID z bazy danych Firestore!'
               : 'Detected and loaded shared Google Client ID from Firestore database!'
+            );
+          }
+          const cloudPropID = docSnap.data().ga4PropertyID;
+          if (cloudPropID && cloudPropID !== ga4PropertyID) {
+            setGa4PropertyID(cloudPropID);
+            localStorage.setItem('google_ga4_property_id', cloudPropID);
+            onAddLogMessage(lang === 'pl'
+              ? 'Wykryto i wczytano wspólny ID usługi GA4 z bazy danych Firestore!'
+              : 'Detected and loaded shared GA4 Property ID from Firestore database!'
             );
           }
           setGlobalClientLoaded(true);
@@ -339,17 +348,19 @@ export default function GSCAnalyticsHub({ lang, onAddLogMessage, onAuditQueryInS
       const docRef = doc(db, 'settings', 'google_oauth_config');
       await setDoc(docRef, {
         clientID: trimmed,
+        ga4PropertyID: ga4PropertyID.trim(),
         updatedAt: new Date().toISOString(),
         updatedBy: localStorage.getItem('last_user_email') || 'User'
-      });
+      }, { merge: true });
       localStorage.setItem('google_custom_client_id', trimmed);
+      localStorage.setItem('google_ga4_property_id', ga4PropertyID.trim());
       onAddLogMessage(lang === 'pl'
-        ? 'Pomyślnie zapisano wspólny Google Client ID w bazie danych Firestore dla zespołu!'
-        : 'Saved shared Google Client ID successfully to Cloud Firestore database for your team!'
+        ? 'Pomyślnie zapisano wspólne ustawienia Google (Client ID i GA4 Property ID) w bazie danych Firestore dla zespołu!'
+        : 'Saved shared Google parameters (Client ID & GA4 Property ID) successfully to Cloud Firestore database for your team!'
       );
       alert(lang === 'pl'
-        ? 'Sukces! Identyfikator zapisany jako domyślny dla wszystkich pracowników Cosibella. Każdy tester otrzyma go teraz automatycznie.'
-        : 'Success! Shared Client ID is now persisted globally in Firestore. Every teammate will automatically use it.'
+        ? 'Sukces! Identyfikator klienta OAuth oraz ID usługi GA4 zostały zapisane jako domyślne dla wszystkich pracowników Cosibella. Każdy tester otrzyma je teraz automatycznie.'
+        : 'Success! Shared Google OAuth Client ID and GA4 Property ID are now persisted globally in Firestore. Every teammate will automatically use them.'
       );
     } catch (error: any) {
       console.error(error);
@@ -568,34 +579,74 @@ export default function GSCAnalyticsHub({ lang, onAddLogMessage, onAuditQueryInS
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="space-y-2">
+                <div className="space-y-4">
                   <span className="block font-bold text-slate-200">
-                    Krok 1: Wygeneruj Google Client ID
+                    Krok 1: Dane uwierzytelniania Google APIs (OAuth & GA4)
                   </span>
                   <p className="text-slate-400">
                     {lang === 'pl'
-                      ? 'Zaloguj się do Google Cloud Console, przejdź do "Interfejsy API i usługi > Dane logowania". Utwórz nowy "Identyfikator klienta OAuth" typu "Aplikacja internetowa".'
-                      : 'Log in to Google Cloud, go to "APIs & Services > Credentials". Create new "OAuth client ID" of type "Web application".'
+                      ? 'Wprowadź i udostępnij globalne identyfikatory tak, aby inni pracownicy automatycznie łączyli się z Twoją usługą Google Cloud i danymi GA4.'
+                      : 'Configure shared credentials so all team members automatically bind to your Google Cloud Console OAuth and GA4 analytics property.'
                     }
                   </p>
-                  <label className="block text-slate-400 mt-2 font-mono text-[11px]">
-                    {lang === 'pl' ? 'Twój Client ID z Google Cloud Console:' : 'Your Client ID from Google Cloud Console:'}
-                  </label>
-                  <input
-                    type="text"
-                    value={customClientID}
-                    onChange={(e) => {
-                      setCustomClientID(e.target.value);
-                      localStorage.setItem('google_custom_client_id', e.target.value);
-                    }}
-                    placeholder="924193647487-skjhf82hgf...apps.googleusercontent.com"
-                    className="w-full bg-[#080a0f] border border-slate-700 rounded px-3 py-2 text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-cyan-500"
-                  />
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1">
-                    <p className="text-[10px] text-slate-500 italic">
+                  
+                  <div className="space-y-1.5">
+                    <label className="block text-slate-400 font-mono text-[10px] uppercase tracking-wider">
+                      {lang === 'pl' ? 'Twój Client ID z Google Cloud Console:' : 'Your Client ID from Google Cloud Console:'}
+                    </label>
+                    <input
+                      type="text"
+                      value={customClientID}
+                      onChange={(e) => {
+                        setCustomClientID(e.target.value);
+                        localStorage.setItem('google_custom_client_id', e.target.value);
+                      }}
+                      placeholder="924193647487-skjhf82hgf...apps.googleusercontent.com"
+                      className="w-full bg-[#080a0f] border border-slate-700 rounded px-3 py-2 text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-slate-400 font-mono text-[10px] uppercase tracking-wider">
+                      {lang === 'pl' ? 'ID USŁUGI GOOGLE ANALYTICS (GA4 Property ID):' : 'GA4 PROPERTY ID:'}
+                    </label>
+                    <input
+                      type="text"
+                      value={ga4PropertyID}
+                      onChange={(e) => {
+                        const val = e.target.value.trim();
+                        setGa4PropertyID(val);
+                        localStorage.setItem('google_ga4_property_id', val);
+                      }}
+                      placeholder="e.g. 319652441"
+                      className="w-full bg-[#080a0f] border border-slate-700 rounded px-3 py-2 text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 text-xs"
+                    />
+                    {ga4PropertyID && (ga4PropertyID.startsWith('G-') || /[^0-9]/.test(ga4PropertyID)) && (
+                      <div className="mt-1.5 p-2 bg-rose-950/40 border border-rose-900/60 text-rose-350 text-[10px] rounded leading-normal space-y-1">
+                        <p className="font-bold">
+                          {lang === 'pl' 
+                            ? '⚠️ BŁĄD: To jest identyfikator strumienia (Measurement ID), a nie identyfikator usługi (Property ID)!' 
+                            : '⚠️ WARNING: This is a Measurement ID, not a GA4 Property ID!'}
+                        </p>
+                        <p>
+                          {lang === 'pl' 
+                            ? 'Z Twoich identyfikatorów Cosi ALL (G-PBHEN...) i Cosibella.pl (G-W12J...) żaden nie zadziała, ponieważ są to identyfikatory pomiarów do wklejenia w kod HTML na stronę. API Google Analytics wymaga wyłącznie cyfrowego ID usługi (np. 319652441).' 
+                            : 'Both your IDs (G-PBHEN... and G-W12J...) are web measurement streams. The GA4 Data API requires a purely numeric Property ID (e.g. 319652441).'}
+                        </p>
+                        <p className="font-semibold underline">
+                          {lang === 'pl' 
+                            ? 'Jak go znaleźć: Przejdź do GA4 -> Administracja (koło zębate) -> Ustawienia usługi (Property Settings). Tam w prawym górnym rogu zobaczysz np. "Identyfikator usługi: 319652441".' 
+                            : 'How to find: Go to GA4 -> Admin -> Property Settings. In the top right corner, search for a numeric ID under "Property ID: 319652441".'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1 border-t border-slate-800/60 mt-1">
+                    <p className="text-[10px] text-slate-550 italic">
                       {lang === 'pl'
-                        ? 'Wskazówka: Zmiany zapisują się automatycznie w Twojej przeglądarce.'
-                        : 'Tip: Changes are instantly saved inside your local browser storage.'
+                        ? 'Zmiany zapisują się lokalnie w przeglądarce.'
+                        : 'Changes are instantly saved inside your local browser.'
                       }
                     </p>
                     {customClientID && !customClientID.includes('xxxx') && (
