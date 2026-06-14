@@ -9,6 +9,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   authError: string | null;
+  googleAccessToken: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,8 +19,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isCosibellaWorker, setIsCosibellaWorker] = useState<boolean>(false);
   const [authInitialized, setAuthInitialized] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
 
   useEffect(() => {
+    // Restore saved Google access token on init
+    const savedToken = localStorage.getItem('google_oauth_access_token');
+    if (savedToken) {
+      setGoogleAccessToken(savedToken);
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (usr) => {
       setAuthError(null);
       if (usr) {
@@ -42,6 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         setCurrentUser(null);
         setIsCosibellaWorker(false);
+        setGoogleAccessToken(null);
       }
       setAuthInitialized(true);
     });
@@ -59,6 +68,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         hd: 'cosibella.pl' // hint to prioritize the cosibella.pl Google workspace domain
       });
       
+      // Inject required OAuth scopes for GSC and GA4 read-only access
+      provider.addScope('https://www.googleapis.com/auth/webmasters.readonly');
+      provider.addScope('https://www.googleapis.com/auth/analytics.readonly');
+      
       const res = await signInWithPopup(auth, provider);
       const email = res.user.email || '';
       
@@ -66,11 +79,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await signOut(auth);
         throw new Error(`Dostęp wzbroniony: Twój adres e-mail (${email}) nie należy do domeny @cosibella.pl.`);
       }
+
+      // Extract the OAuth Access Token for Google APIs
+      const credential = GoogleAuthProvider.credentialFromResult(res);
+      const token = credential?.accessToken || null;
+      if (token) {
+        localStorage.setItem('google_oauth_access_token', token);
+        setGoogleAccessToken(token);
+      }
     } catch (err: any) {
       console.error('Błąd logowania:', err);
       setAuthError(err.message || 'Wystąpił błąd podczas logowania przez Google.');
       setCurrentUser(null);
       setIsCosibellaWorker(false);
+      setGoogleAccessToken(null);
       throw err;
     }
   };
@@ -78,8 +100,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       await signOut(auth);
+      localStorage.removeItem('google_oauth_access_token');
       setCurrentUser(null);
       setIsCosibellaWorker(false);
+      setGoogleAccessToken(null);
       setAuthError(null);
     } catch (err) {
       console.error('Błąd wylogowania:', err);
@@ -95,6 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signInWithGoogle,
         logout,
         authError,
+        googleAccessToken,
       }}
     >
       {children}

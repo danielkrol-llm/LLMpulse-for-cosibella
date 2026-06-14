@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import GA4SyncTab from './GA4SyncTab';
 
 // Static seed data modeling real performance metrics for Cosibella.pl
 const SAMPLE_GSC_DATA = [
@@ -39,11 +40,16 @@ const SAMPLE_GSC_DATA = [
 ];
 
 const SAMPLE_GA4_REFERRALS = [
-  { source: 'ChatGPT / OpenAI Search', visits: 12450, conversions: 4.8, avgDuration: '1m 54s', trend: '+28%' },
-  { source: 'Perplexity AI', visits: 8900, conversions: 5.2, avgDuration: '2m 12s', trend: '+45%' },
-  { source: 'Gemini (Google AI Overviews)', visits: 15400, conversions: 4.1, avgDuration: '1m 35s', trend: '+15%' },
-  { source: 'Claude (Anthropic)', visits: 3120, conversions: 3.9, avgDuration: '1m 48s', trend: '+8%' },
-  { source: 'DuckDuckGo AI Chat', visits: 1850, conversions: 3.5, avgDuration: '1m 20s', trend: '+12%' },
+  { source: 'chatgpt.com / (not set)', visits: 2823, conversions: 63.94, avgDuration: '1m 07s', trend: '+142%', activeUsers: 2192, badge: 'ChatGPT Search' },
+  { source: 'chatgpt.com / ai-assistant', visits: 1045, conversions: 64.88, avgDuration: '1m 11s', trend: '+88%', activeUsers: 868, badge: 'ChatGPT App' },
+  { source: 'chatgpt.com / referral', visits: 767, conversions: 71.58, avgDuration: '1m 28s', trend: '+45%', activeUsers: 461, badge: 'ChatGPT link' },
+  { source: 'perplexity / (not set)', visits: 84, conversions: 55.95, avgDuration: '0m 27s', trend: '+11%', activeUsers: 44, badge: 'Perplexity' },
+  { source: 'gemini.google.com / referral', visits: 29, conversions: 62.07, avgDuration: '0m 40s', trend: '+6%', activeUsers: 20, badge: 'Gemini Web' },
+  { source: 'perplexity.ai / referral', visits: 13, conversions: 61.54, avgDuration: '1m 19s', trend: '+12%', activeUsers: 5, badge: 'Perplexity Search' },
+  { source: 'gemini.google.com / ai-assistant', visits: 12, conversions: 50.00, avgDuration: '1m 53s', trend: 'Steady', activeUsers: 7, badge: 'Gemini App' },
+  { source: 'claude.ai / referral', visits: 11, conversions: 72.73, avgDuration: '1m 33s', trend: '+18%', activeUsers: 6, badge: 'Claude AI' },
+  { source: 'chatgpt.com / (none)', visits: 9, conversions: 100.00, avgDuration: '6m 50s', trend: 'N/A', activeUsers: 9, badge: 'Direct chat' },
+  { source: 'openai / (not set)', visits: 2, conversions: 50.00, avgDuration: '0m 03s', trend: 'New', activeUsers: 2, badge: 'OpenAI API' }
 ];
 
 const SAMPLE_GA4_LANDINGS = [
@@ -72,6 +78,17 @@ export default function GSCAnalyticsHub({ lang, onAddLogMessage, onAuditQueryInS
   const [fetchedGscData, setFetchedGscData] = useState<any[] | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // GA4 states
+  const [ga4PropertyID, setGa4PropertyID] = useState<string>(() => {
+    return localStorage.getItem('google_ga4_property_id') || '319652441';
+  });
+  const [ga4Data, setGa4Data] = useState<any[] | null>(null);
+  const [ga4TrendData, setGa4TrendData] = useState<any[] | null>(null);
+  const [isSyncingGA4, setIsSyncingGA4] = useState(false);
+  const [ga4Error, setGa4Error] = useState<string | null>(null);
+  const [hoveredPointIdx, setHoveredPointIdx] = useState<number | null>(null);
+  const [funnelFilter, setFunnelFilter] = useState<'ALL' | 'OPENAI' | 'ANTHROPIC' | 'PERPLEXITY' | 'GEMINI'>('ALL');
+
   // User custom client ID state
   const [customClientID, setCustomClientID] = useState<string>(() => {
     return localStorage.getItem('google_custom_client_id') || '';
@@ -83,6 +100,192 @@ export default function GSCAnalyticsHub({ lang, onAddLogMessage, onAuditQueryInS
 
   // Schema state template helper
   const [copiedSchemaId, setCopiedSchemaId] = useState<string | null>(null);
+
+  // Fetch real Google Analytics 4 Data
+  const fetchRealGA4Data = async (token: string, propId: string) => {
+    if (!propId || propId.trim() === '') {
+      setGa4Error(lang === 'pl' ? 'Wprowadź poprawny identyfikator usługi GA4' : 'Please enter a valid GA4 Property ID');
+      return;
+    }
+    setIsSyncingGA4(true);
+    setGa4Error(null);
+    onAddLogMessage(lang === 'pl' 
+      ? `Łączenie z API Google Analytics 4, odpytywanie usługi: ${propId}...` 
+      : `Connecting to Google Analytics 4 API, querying Property ID: ${propId}...`
+    );
+
+    const regexValue = "^.*(chatgpt|openai|claude|perplexity|gemini|copilot\\.microsoft|meta\\.ai|deepseek|you\\.com|mistral|phind|character\\.ai).*$";
+
+    try {
+      // 1. Report 1: Referral metrics list
+      const report1Promise = fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${propId}:runReport`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
+          dimensions: [{ name: 'sessionSourceMedium' }],
+          metrics: [
+            { name: 'sessions' },
+            { name: 'activeUsers' },
+            { name: 'engagementRate' },
+            { name: 'averageSessionDuration' }
+          ],
+          dimensionFilter: {
+            filter: {
+              fieldName: 'sessionSourceMedium',
+              stringFilter: {
+                matchType: 'REGEXP',
+                value: regexValue
+              }
+            }
+          }
+        })
+      });
+
+      // 2. Report 2: Daily timeseries trend for the chart
+      const report2Promise = fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${propId}:runReport`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
+          dimensions: [{ name: 'date' }],
+          metrics: [{ name: 'sessions' }],
+          dimensionFilter: {
+            filter: {
+              fieldName: 'sessionSourceMedium',
+              stringFilter: {
+                matchType: 'REGEXP',
+                value: regexValue
+              }
+            }
+          }
+        })
+      });
+
+      const [res1, res2] = await Promise.all([report1Promise, report2Promise]);
+
+      if (!res1.ok || !res2.ok) {
+        const errText1 = await res1.text();
+        const errText2 = await res2.text();
+        throw new Error(errText1 || errText2 || 'Google Analytics API error');
+      }
+
+      const data1 = await res1.json();
+      const data2 = await res2.json();
+
+      const formatDuration = (secondsStr: string): string => {
+        const totalSecObj = Math.round(parseFloat(secondsStr) || 0);
+        const minutes = Math.floor(totalSecObj / 60);
+        const secs = totalSecObj % 60;
+        return `${minutes}m ${secs.toString().padStart(2, '0')}s`;
+      };
+
+      const mappedReferrals = (data1.rows || []).map((row: any) => {
+        const sourceMedium = row.dimensionValues?.[0]?.value || '(not set)';
+        const visits = parseInt(row.metricValues?.[0]?.value || '0', 10);
+        const activeUsers = parseInt(row.metricValues?.[1]?.value || '0', 10);
+        const engagementRate = parseFloat(row.metricValues?.[2]?.value || '0') * 100;
+        const durationSec = parseFloat(row.metricValues?.[3]?.value || '0');
+
+        let badge = 'AI Source';
+        if (sourceMedium.toLowerCase().includes('chatgpt')) {
+          if (sourceMedium.includes('ai-assistant')) badge = 'ChatGPT App';
+          else if (sourceMedium.includes('referral')) badge = 'ChatGPT link';
+          else badge = 'ChatGPT Search';
+        } else if (sourceMedium.toLowerCase().includes('perplexity')) {
+          badge = 'Perplexity';
+        } else if (sourceMedium.toLowerCase().includes('gemini')) {
+          if (sourceMedium.includes('ai-assistant')) badge = 'Gemini App';
+          else badge = 'Gemini Web';
+        } else if (sourceMedium.toLowerCase().includes('claude')) {
+          badge = 'Claude AI';
+        } else if (sourceMedium.toLowerCase().includes('openai')) {
+          badge = 'OpenAI API';
+        } else if (sourceMedium.toLowerCase().includes('copilot')) {
+          badge = 'Copilot';
+        } else if (sourceMedium.toLowerCase().includes('deepseek')) {
+          badge = 'DeepSeek';
+        }
+
+        return {
+          source: sourceMedium,
+          visits,
+          activeUsers,
+          conversions: parseFloat(engagementRate.toFixed(2)),
+          avgDuration: formatDuration(durationSec.toString()),
+          trend: 'Live',
+          badge
+        };
+      }).sort((a: any, b: any) => b.visits - a.visits);
+
+      const mappedDailyTrend = (data2.rows || []).map((row: any) => {
+        const dateStr = row.dimensionValues?.[0]?.value || '';
+        const sessions = parseInt(row.metricValues?.[0]?.value || '0', 10);
+
+        const year = dateStr.substring(0, 4);
+        const month = dateStr.substring(4, 6);
+        const day = dateStr.substring(6, 8);
+        const dateObj = new Date(`${year}-${month}-${day}`);
+        const labelStr = dateObj.toLocaleDateString(lang === 'pl' ? 'pl-PL' : 'en-US', { day: '2-digit', month: 'short' });
+
+        return {
+          date: dateStr,
+          label: labelStr,
+          sessions
+        };
+      }).sort((a: any, b: any) => a.date.localeCompare(b.date));
+
+      setGa4Data(mappedReferrals);
+      setGa4TrendData(mappedDailyTrend);
+      
+      onAddLogMessage(lang === 'pl'
+        ? 'Pomyślnie pobrano i zaktualizowano dane na żywo z Twojej usługi Google Analytics 4!'
+        : 'Successfully retrieved and synchronized live data from your Google Analytics 4 Property!'
+      );
+    } catch (e: any) {
+      console.error('Error fetching GA4 API Data:', e);
+      let friendlyError = e.message;
+      try {
+        const parsed = JSON.parse(e.message);
+        friendlyError = parsed.error?.message || e.message;
+      } catch(_) {}
+
+      setGa4Error(friendlyError);
+      onAddLogMessage(lang === 'pl'
+        ? `Błąd API Google Analytics 4: ${friendlyError}. Korzystanie z danych archiwalnych.`
+        : `Google Analytics 4 API Error: ${friendlyError}. Reverting to offline calibrated dataset.`
+      );
+    } finally {
+      setIsSyncingGA4(false);
+    }
+  };
+
+  const getOfflineGA4DailyTrend = () => {
+    const baseSessions = [
+      110, 125, 145, 130, 115, 95, 120, // w1
+      140, 155, 185, 165, 150, 110, 135, // w2
+      160, 175, 210, 195, 180, 130, 155, // w3
+      182, 190, 235, 215, 198, 142, 168  // w4
+    ];
+    const trendPoints = [];
+    const startDate = new Date('2026-05-17');
+    for (let i = 0; i < 28; i++) {
+      const curDate = new Date(startDate.getTime() + i * 24 * 3600 * 1000);
+      const label = curDate.toLocaleDateString(lang === 'pl' ? 'pl-PL' : 'en-US', { day: '2-digit', month: 'short' });
+      const sessions = Math.round((baseSessions[i] || 150) * 1.107);
+      trendPoints.push({
+        label,
+        sessions
+      });
+    }
+    return trendPoints;
+  };
 
   // Load Global Client ID from cloud Firestore on mount
   useEffect(() => {
@@ -175,10 +378,17 @@ export default function GSCAnalyticsHub({ lang, onAddLogMessage, onAuditQueryInS
           ? 'Zalogowano pomyślnie do Google Console! Autoryzacja zakończona sukcesem.'
           : 'Successfully authenticated to Google Webmaster Hub!'
         );
-        fetchRealGSCData(token);
       }
     }
   }, []);
+
+  // Synchronize Google APIs whenever accessToken is active
+  useEffect(() => {
+    if (accessToken) {
+      fetchRealGSCData(accessToken);
+      fetchRealGA4Data(accessToken, ga4PropertyID);
+    }
+  }, [accessToken]);
 
   const handleGoogleConnect = async () => {
     const trimmedClientId = customClientID.trim();
@@ -229,6 +439,9 @@ export default function GSCAnalyticsHub({ lang, onAddLogMessage, onAuditQueryInS
     setAccessToken(null);
     setGoogleConnected(false);
     setFetchedGscData(null);
+    setGa4Data(null);
+    setGa4TrendData(null);
+    setGa4Error(null);
     addLog(lang === 'pl' ? 'Skojarzenie z kontem Google zostało usunięte.' : 'Disconnected successfully from Google Account API.');
   };
 
@@ -602,104 +815,802 @@ export default function GSCAnalyticsHub({ lang, onAddLogMessage, onAuditQueryInS
 
       {/* SUB-TAB: GA4 REFERRALS */}
       {activeSubTab === 'GA4' && (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 font-mono">
-          
-          {/* Active Referral sources and visits */}
-          <div className="md:col-span-6 p-5 border border-slate-800 rounded-xl bg-[#0f121a] space-y-4">
-            <div className="border-b border-slate-800 pb-3">
-              <h3 className="font-bold text-sm text-white flex items-center gap-2">
-                <TrendingUp size={16} className="text-emerald-400" />
-                {lang === 'pl' ? 'Wizyty Referencyjne ze Źródeł Generatywnych (GA4)' : 'AI-Direct Search Engine Visitorial Traffic'}
-              </h3>
-              <p className="text-[10px] text-slate-400 leading-normal mt-0.5">
-                {lang === 'pl'
-                  ? 'Prawdziwe sesje użytkowników zidentyfikowane jako ruch przekierowujący bezpośrednio z witryn chatbotów AI.'
-                  : 'Total active sessions sourced strictly from OpenAI, Perplexity, Google Gemini, and Anthropic domains.'
-                }
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              {SAMPLE_GA4_REFERRALS.map((ref, idx) => (
-                <div key={idx} className="p-3 bg-[#131620]/60 border border-slate-800 rounded-xl flex items-center justify-between hover:border-slate-700 transition">
-                  <div className="space-y-1 max-w-[60%]">
-                    <span className="text-xs text-white font-bold block">{ref.source}</span>
-                    <span className="text-[10px] text-slate-500 flex items-center gap-1.5">
-                      Średni czas: <span className="font-semibold text-slate-400">{ref.avgDuration}</span>
-                    </span>
-                  </div>
-                  <div className="text-right flex items-center gap-4">
-                    <div className="space-y-0.5">
-                      <span className="text-xs font-bold text-cyan-400 block">{ref.visits.toLocaleString()} <span className="text-[9px] text-slate-400">sesji</span></span>
-                      <span className="text-[10px] text-emerald-400 font-bold block">{lang === 'pl' ? `Konwersja: ${ref.conversions}%` : `CR: ${ref.conversions}%`}</span>
-                    </div>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-emerald-950/40 text-emerald-400 border border-emerald-950">
-                      {ref.trend}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="p-3 bg-cyan-950/20 border border-cyan-800/30 rounded-lg text-xs leading-relaxed text-slate-350 flex items-start gap-1.5">
-              <Sparkles className="w-4.5 h-4.5 text-cyan-400 shrink-0 mt-0.5" />
-              <span>
-                {lang === 'pl'
-                  ? 'Zapewnienie pierwszego miejsca (Top 1) w rekomendacjach Perplexity oraz AI Overviews przekłada się na średnio +24% dłuższą sesję w porównaniu z tradycyjnym wejściem z Google.'
-                  : 'Ranking as first-choice in generative recommendations yields an average +24% higher average engagement metrics over standard organic SERP clickthrough.'
-                }
-              </span>
-            </div>
-          </div>
-
-          {/* Landing pages health list */}
-          <div className="md:col-span-6 p-5 border border-slate-800 rounded-xl bg-[#0f121a] space-y-4">
-            <div className="border-b border-slate-800 pb-3">
-              <h3 className="font-bold text-sm text-white flex items-center gap-2">
-                <BarChart2 size={16} className="text-cyan-400" />
-                {lang === 'pl' ? 'Najczęściej Cytowane Podstrony Cosibelli' : 'Most Influential Citations Landing Pages'}
-              </h3>
-              <p className="text-[10px] text-slate-400 leading-normal mt-0.5">
-                {lang === 'pl'
-                  ? 'Adresy URL i produkty najchętniej rekomendowane w odpowiedziach modeli LLM w czasie rzeczywistym.'
-                  : 'Highest indexed landing page endpoints queried and matched into generative brand assets.'
-                }
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              {SAMPLE_GA4_LANDINGS.map((land, idx) => (
-                <div key={idx} className="p-3 bg-[#131620]/60 border border-slate-800 rounded-xl space-y-2 hover:border-slate-700 transition">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1 max-w-[70%]">
-                      <span className="text-xs text-white font-bold block truncate">{land.desc}</span>
-                      <span className="text-[10px] text-slate-500 font-mono block truncate">{land.path}</span>
-                    </div>
-                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono tracking-widest uppercase font-bold ${
-                      land.health === 'Excellent' 
-                        ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/30' 
-                        : land.health === 'Needs Schema'
-                        ? 'bg-[#e5a004]/10 text-[#f5ca45]'
-                        : 'bg-rose-950/30 text-rose-400 border border-rose-500/10'
-                    }`}>
-                      {land.health}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1.5 border-t border-slate-850/40">
-                    <div className="flex items-center gap-1">
-                      <Link2 size={11} className="text-cyan-400" />
-                      <span>Cytowania: <strong className="text-white">{land.aiCitations}</strong></span>
-                    </div>
-                    <span>Crawl skany: <strong className="text-white">{land.botCrawls}</strong></span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-        </div>
+        <GA4SyncTab
+          lang={lang}
+          accessToken={accessToken}
+          googleConnected={googleConnected}
+          ga4PropertyID={ga4PropertyID}
+          setGa4PropertyID={setGa4PropertyID}
+          handleGoogleConnect={handleGoogleConnect}
+          handleDisconnect={handleDisconnect}
+          onAddLogMessage={onAddLogMessage}
+          customClientID={customClientID}
+        />
       )}
+      {false && (() => {
+        const activeGA4Referrals = ga4Data || SAMPLE_GA4_REFERRALS;
+        const activeGA4Trend = ga4TrendData || getOfflineGA4DailyTrend();
+        const totalVisitsCount = activeGA4Referrals.reduce((sum, item) => sum + item.visits, 0);
+        const totalActiveUsers = activeGA4Referrals.reduce((sum, item) => sum + (item.activeUsers || 0), 0);
+        
+        return (
+          <div className="space-y-6 font-mono">
+            {/* GA4 INTEGRATION CONTROL PANEL */}
+            <div className="p-5 border border-slate-800 rounded-xl bg-[#0f121a] flex flex-col md:flex-row gap-5 items-stretch justify-between">
+              <div className="max-w-xl space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2.5 h-2.5 rounded-full ${googleConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400 animate-pulse'}`} />
+                  <h4 className="text-xs font-bold text-slate-300 tracking-wider font-mono block uppercase">
+                    {lang === 'pl' ? 'Status Synchronizacji Google Analytics 4' : 'Google Analytics 4 Sync Hub'}
+                  </h4>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
+                  {lang === 'pl'
+                    ? 'Pobieraj dane bezpośrednio z raportu "Pozyskiwanie ruchu > Sesja - źródło/medium" odfiltrowanego regexem pod kątem ruchu z LLM-ów. Silnik automatycznie analizuje wejścia z ChatGPT, Perplexity, Gemini, Claude, DeepSeek i innych.'
+                    : 'Fetch user traffic directly from your GA4 "Traffic acquisition > Session source/medium" stream. The engine parses organic entries from generative products like ChatGPT, Perplexity, Gemini, Claude, and DeepSeek.'
+                  }
+                </p>
+
+                {ga4Error && (
+                  <div className="p-2 sm:p-3 bg-rose-950/20 text-rose-400 border border-rose-900/30 text-[10px] rounded-lg mt-1 flex items-start gap-2 max-w-sm">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{ga4Error}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 self-center shrink-0 w-full md:w-auto">
+                <div className="space-y-1 w-full sm:w-auto">
+                  <label className="text-[9px] text-slate-500 font-bold block uppercase">{lang === 'pl' ? 'ID USŁUGI (Property ID):' : 'GA4 PROPERTY ID:'}</label>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      value={ga4PropertyID}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        setGa4PropertyID(val);
+                        localStorage.setItem('google_ga4_property_id', val);
+                      }}
+                      placeholder="e.g. 319652441"
+                      className="w-full sm:w-32 text-xs font-bold bg-[#141822] border border-slate-800 rounded p-2 text-cyan-400 focus:outline-none focus:border-cyan-500 text-center"
+                    />
+                    {googleConnected && (
+                      <button
+                        onClick={() => fetchRealGA4Data(accessToken!, ga4PropertyID)}
+                        disabled={isSyncingGA4}
+                        className="px-3 py-1.5 font-mono text-[10px] font-bold text-cyan-400 hover:text-white bg-slate-900 border border-slate-800 rounded hover:border-cyan-500 transition cursor-pointer flex items-center justify-center gap-1 shrink-0 disabled:opacity-40"
+                      >
+                        <RefreshCw size={11} className={isSyncingGA4 ? 'animate-spin' : ''} />
+                        {lang === 'pl' ? 'Pobierz' : 'Sync'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-end self-end w-full sm:w-auto">
+                  {!googleConnected ? (
+                    <button
+                      onClick={handleGoogleConnect}
+                      className="w-full sm:w-auto px-4 py-2 font-mono text-xs font-bold text-[#0c0e14] bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-300 hover:to-teal-300 rounded-lg transition cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <Globe size={13} className="text-slate-950" />
+                      {lang === 'pl' ? 'Połącz z GA4' : 'Connect GA4 API'}
+                    </button>
+                  ) : (
+                    <div className="space-y-1 w-full sm:w-auto">
+                      <span className="text-[9px] text-slate-500 font-bold block uppercase">&nbsp;</span>
+                      <button
+                        onClick={handleDisconnect}
+                        className="w-full sm:w-auto px-3.5 py-2 font-mono text-xs font-bold text-slate-400 hover:text-white bg-slate-900 border border-slate-800 hover:border-rose-500/40 rounded-lg transition cursor-pointer"
+                      >
+                        {lang === 'pl' ? 'Wyloguj' : 'Disconnect'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* HIGH-FIDELITY INTERACTIVE DAILY AI TRAFFIC CHART (WYKRES) */}
+            <div className="p-5 border border-slate-800 rounded-xl bg-[#0f121a] space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3.5">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1 rounded bg-[#16201a] border border-emerald-800/20 text-emerald-400">
+                      <TrendingUp size={14} />
+                    </span>
+                    <h3 className="font-bold text-sm text-white">
+                      {lang === 'pl' ? 'Wykres dziennych sesji z generatywnych silników AI' : 'Generative AI Daily Conversational Sessions Trend'}
+                    </h3>
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-normal">
+                    {lang === 'pl'
+                      ? 'Wykres i trend trendu wzrostowego bezpośredniego zaangażowania użytkowników wyszukiwarek sztucznej inteligencji w ciągu ostatnich 30 dni.'
+                      : '30-day interactive chronologic viewport modeling active sessions and user engagements.'
+                    }
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-4 text-xs font-mono">
+                  <div className="space-y-0.5">
+                    <span className="text-[8px] text-slate-500 block uppercase font-bold">{lang === 'pl' ? 'Suma sesji AI' : 'Total AI Sessions'}</span>
+                    <span className="text-cyan-400 font-extrabold text-sm">{totalVisitsCount.toLocaleString()}</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="text-[8px] text-slate-500 block uppercase font-bold">{lang === 'pl' ? 'Aktywni użytkownicy' : 'Active Users'}</span>
+                    <span className="text-slate-200 font-extrabold text-sm">{totalActiveUsers.toLocaleString()}</span>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[9px] font-bold border ${
+                    ga4Data 
+                      ? 'bg-emerald-950/40 text-emerald-400 border-emerald-800/40' 
+                      : 'bg-amber-950/40 text-amber-400 border-amber-800/40'
+                  }`}>
+                    {ga4Data 
+                      ? (lang === 'pl' ? 'POŁĄCZENIE GA4: LIVE' : 'GA4 CONNECTION: LIVE') 
+                      : (lang === 'pl' ? 'DANE KALIBRACYJNE' : 'CALIBRATED SIMULATION')
+                    }
+                  </span>
+                </div>
+              </div>
+
+              {/* RENDER THE RESPONSIVE INLINE SVG LINE CHART */}
+              {activeGA4Trend.length > 0 ? (() => {
+                const trendPointsCount = activeGA4Trend.length;
+                const maxSessionValue = Math.max(...activeGA4Trend.map(t => t.sessions), 20);
+                
+                // Chart parameters
+                const chartWidth = 500;
+                const chartHeight = 150;
+                const chartPaddingLeft = 45;
+                const chartPaddingRight = 15;
+                const chartPaddingTop = 15;
+                const chartPaddingBottom = 20;
+
+                const graphWidth = chartWidth - chartPaddingLeft - chartPaddingRight;
+                const graphHeight = chartHeight - chartPaddingTop - chartPaddingBottom;
+
+                // Points path string
+                const pointsStr = activeGA4Trend.map((t, idx) => {
+                  const x = chartPaddingLeft + (idx / (trendPointsCount - 1)) * graphWidth;
+                  const y = chartPaddingTop + graphHeight - (t.sessions / maxSessionValue) * graphHeight;
+                  return `${x},${y}`;
+                }).join(' ');
+
+                // Filled area string
+                const areaPointsStr = trendPointsCount > 0 
+                  ? `${chartPaddingLeft},${chartPaddingTop + graphHeight} ${pointsStr} ${chartPaddingLeft + graphWidth},${chartPaddingTop + graphHeight}`
+                  : '';
+
+                // Generate vertical grid lines
+                const gridTicks = [0, 0.25, 0.5, 0.75, 1];
+
+                return (
+                  <div className="relative w-full overflow-hidden bg-[#0c0e14] border border-slate-850 rounded-xl p-2.5">
+                    {/* SVG canvas */}
+                    <svg
+                      viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                      className="w-full h-auto select-none overflow-visible"
+                    >
+                      <defs>
+                        {/* Area gradient under the line */}
+                        <linearGradient id="ga4AreaGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.18" />
+                          <stop offset="100%" stopColor="#22d3ee" stopOpacity="0" />
+                        </linearGradient>
+                        {/* Subtle line glow */}
+                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                          <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#06b6d4" floodOpacity="0.4" />
+                        </filter>
+                      </defs>
+
+                      {/* Horizontal Gridlines */}
+                      {gridTicks.map((val, idx) => {
+                        const y = chartPaddingTop + val * graphHeight;
+                        const labelValue = Math.round(maxSessionValue * (1 - val));
+                        return (
+                          <g key={idx}>
+                            <line
+                              x1={chartPaddingLeft}
+                              y1={y}
+                              x2={chartWidth - chartPaddingRight}
+                              y2={y}
+                              stroke="#1e293b"
+                              strokeWidth={0.5}
+                              strokeDasharray="4,4"
+                            />
+                            {/* Y axis labels */}
+                            <text
+                              x={chartPaddingLeft - 8}
+                              y={y + 3}
+                              fill="#64748b"
+                              fontSize="8"
+                              textAnchor="end"
+                              fontWeight="bold"
+                            >
+                              {labelValue}
+                            </text>
+                          </g>
+                        );
+                      })}
+
+                      {/* X axis labels (staggered for legibility) */}
+                      {activeGA4Trend.map((t, idx) => {
+                        // Show label on start, end, and every 4th step to prevent clutter
+                        if (idx % 4 !== 0 && idx !== trendPointsCount - 1) return null;
+                        const x = chartPaddingLeft + (idx / (trendPointsCount - 1)) * graphWidth;
+                        return (
+                          <text
+                            key={idx}
+                            x={x}
+                            y={chartHeight - 4}
+                            fill="#64748b"
+                            fontSize="8"
+                            textAnchor="middle"
+                            fontWeight="bold"
+                          >
+                            {t.label}
+                          </text>
+                        );
+                      })}
+
+                      {/* Render Area fill shape */}
+                      {areaPointsStr && (
+                        <polygon
+                          points={areaPointsStr}
+                          fill="url(#ga4AreaGradient)"
+                        />
+                      )}
+
+                      {/* Render Trend line path */}
+                      {pointsStr && (
+                        <polyline
+                          points={pointsStr}
+                          fill="none"
+                          stroke="#22d3ee"
+                          strokeWidth={2}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          filter="url(#glow)"
+                        />
+                      )}
+
+                      {/* Hover tracker dashed line & custom SVG tooltip */}
+                      {hoveredPointIdx !== null && activeGA4Trend[hoveredPointIdx] && (() => {
+                        const t = activeGA4Trend[hoveredPointIdx];
+                        const x = chartPaddingLeft + (hoveredPointIdx / (trendPointsCount - 1)) * graphWidth;
+                        const y = chartPaddingTop + graphHeight - (t.sessions / maxSessionValue) * graphHeight;
+                        return (
+                          <>
+                            {/* Vertical cursor guideline */}
+                            <line
+                              x1={x}
+                              y1={chartPaddingTop}
+                              x2={x}
+                              y2={chartPaddingTop + graphHeight}
+                              stroke="#334155"
+                              strokeWidth={0.75}
+                              strokeDasharray="3,3"
+                            />
+                            {/* Tooltip background & text */}
+                            <g transform={`translate(${x > chartWidth - 120 ? x - 110 : x + 10}, ${y > chartHeight - 45 ? y - 40 : y + 5})`}>
+                              <rect
+                                width={100}
+                                height={38}
+                                rx={6}
+                                fill="#0c0e14"
+                                stroke="#0891b2"
+                                strokeWidth={1}
+                              />
+                              <text x={8} y={15} fill="#475569" fontSize="9" fontWeight="bold">
+                                {t.label}
+                              </text>
+                              <text x={8} y={28} fill="#22d3ee" fontSize="10" fontWeight="extrabold">
+                                {t.sessions.toLocaleString()} {lang === 'pl' ? 'sesji' : 'sessions'}
+                              </text>
+                            </g>
+                          </>
+                        );
+                      })()}
+
+                      {/* Interactive nodes */}
+                      {activeGA4Trend.map((t, idx) => {
+                        const x = chartPaddingLeft + (idx / (trendPointsCount - 1)) * graphWidth;
+                        const y = chartPaddingTop + graphHeight - (t.sessions / maxSessionValue) * graphHeight;
+                        return (
+                          <g key={idx} className="group/node">
+                            {/* Transparent larger hover field trigger */}
+                            <circle
+                              cx={x}
+                              cy={y}
+                              r={10}
+                              fill="transparent"
+                              className="cursor-pointer"
+                              onMouseEnter={() => setHoveredPointIdx(idx)}
+                              onMouseLeave={() => setHoveredPointIdx(null)}
+                            />
+                            {/* Visible visual bullet */}
+                            <circle
+                              cx={x}
+                              cy={y}
+                              r={hoveredPointIdx === idx ? 4.5 : 2.5}
+                              className={`${
+                                hoveredPointIdx === idx ? 'fill-cyan-400 stroke-[#0f121a] stroke-[2px]' : 'fill-[#0891b2]'
+                              } transition-all pointer-events-none`}
+                            />
+                          </g>
+                        );
+                      })}
+                    </svg>
+
+                    <div className="absolute top-2.5 right-3 text-[9px] text-slate-500 font-mono flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+                      {lang === 'pl' ? 'Najedź kursorem na punkty wykresu aby odczytać precyzyjne wartości' : 'Hover over chart points to trace exact traffic coordinate'}
+                    </div>
+                  </div>
+                );
+              })() : (
+                <div className="p-8 text-center text-slate-500 border border-dashed border-slate-800 rounded-xl">
+                  {lang === 'pl' ? 'Logowanie aktywne, brak dopasowanych danych trendu dziennego z ostatnich 30 dni' : 'Authorized successfully, no trends matching search query in this GA4 frame range.'}
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+              {/* Active Referral sources and visits */}
+              <div className="md:col-span-6 p-5 border border-slate-800 rounded-xl bg-[#0f121a] space-y-4">
+                <div className="border-b border-slate-800 pb-3">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                      <TrendingUp size={16} className="text-emerald-400" />
+                      {lang === 'pl' ? 'Pozyskany ruch (Zidentyfikowani Asystenci AI)' : 'Inbound Referrals (Classified AI Chatbots)'}
+                    </h3>
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-normal mt-1.5">
+                    {lang === 'pl'
+                      ? 'Analiza pojedynczych źródeł sesji, średniego czasu ich trwania oraz poziomu zaangażowania na stronie.'
+                      : 'Granular view of user sessions routed from conversational AI helpers, listing their respective average session engagement metrics.'
+                    }
+                  </p>
+                </div>
+
+                <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                  {activeGA4Referrals.length > 0 ? activeGA4Referrals.map((ref, idx) => (
+                    <div key={idx} className="p-3 bg-[#131620]/60 border border-slate-800 rounded-xl flex items-center justify-between hover:border-slate-700 transition">
+                      <div className="space-y-1 max-w-[62%]">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-white font-bold block truncate">{ref.source}</span>
+                          {ref.badge && (
+                            <span className="text-[9px] px-1 py-0.2 bg-cyan-950/40 text-cyan-400 rounded border border-cyan-800/20 font-sans whitespace-nowrap">
+                              {ref.badge}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:gap-3 text-[10px] text-slate-500">
+                          <span>{lang === 'pl' ? 'Średni czas:' : 'Avg duration:'} <span className="font-semibold text-slate-400">{ref.avgDuration}</span></span>
+                          <span>{lang === 'pl' ? 'Użytkownicy:' : 'Users:'} <span className="font-semibold text-cyan-300">{ref.activeUsers?.toLocaleString()}</span></span>
+                        </div>
+                      </div>
+                      <div className="text-right flex items-center gap-3">
+                        <div className="space-y-0.5">
+                          <span className="text-xs font-bold text-cyan-400 block">{ref.visits.toLocaleString()} <span className="text-[9px] text-slate-400">{lang === 'pl' ? 'sesji' : 'sessions'}</span></span>
+                          <span className="text-[10px] text-emerald-400 font-bold block">
+                            {lang === 'pl' ? `Zaangażowanie: ${ref.conversions}%` : `Engagement: ${ref.conversions}%`}
+                          </span>
+                        </div>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold ${
+                          ref.trend === 'Live' 
+                            ? 'bg-cyan-950/40 text-cyan-400 border border-cyan-900/35'
+                            : 'bg-emerald-950/40 text-emerald-400 border border-emerald-950/30'
+                        }`}>
+                          {ref.trend}
+                        </span>
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="p-8 text-center text-slate-500 border border-dashed border-slate-850 rounded-xl">
+                      {lang === 'pl' ? 'Brak danych dotyczących silników AI w obecnej konfiguracji filtra.' : 'No active user sessions matching the AI agents filter currently.'}
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-3 bg-cyan-950/20 border border-cyan-800/30 rounded-lg text-xs leading-relaxed text-slate-350 flex items-start gap-1.5">
+                  <Sparkles className="w-4.5 h-4.5 text-cyan-400 shrink-0 mt-0.5" />
+                  <span>
+                    {lang === 'pl'
+                      ? 'Wzrost rekomendacji (Top 1) w silnikach Perplexity oraz Google Gemini przekłada się przeciętnie na o +24% dłuższą sesję użytkownika w porównaniu z klasyczną wyszukiwarką.'
+                      : 'Securing top indexing recommendations in Perplexity or Google Gemini search yields +24% average session length increases over traditional organic engine entry.'
+                    }
+                  </span>
+                </div>
+              </div>
+
+              {/* Landing pages health list */}
+              <div className="md:col-span-6 p-5 border border-slate-800 rounded-xl bg-[#0f121a] space-y-4">
+                <div className="border-b border-slate-800 pb-3">
+                  <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                    <BarChart2 size={16} className="text-cyan-400" />
+                    {lang === 'pl' ? 'Najczęściej Cytowane Podstrony Cosibelli' : 'Most Influential Citations Landing Pages'}
+                  </h3>
+                  <p className="text-[10px] text-slate-400 leading-normal mt-0.5">
+                    {lang === 'pl'
+                      ? 'Adresy URL i produkty najchętniej rekomendowane w odpowiedziach modeli LLM w czasie rzeczywistym.'
+                      : 'Highest indexed landing page endpoints queried and matched into generative brand assets.'
+                    }
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  {SAMPLE_GA4_LANDINGS.map((land, idx) => (
+                    <div key={idx} className="p-3 bg-[#131620]/60 border border-slate-800 rounded-xl space-y-2 hover:border-slate-700 transition">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1 max-w-[70%]">
+                          <span className="text-xs text-white font-bold block truncate">{land.desc}</span>
+                          <span className="text-[10px] text-slate-500 font-mono block truncate">{land.path}</span>
+                        </div>
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono tracking-widest uppercase font-bold p-0.5 ${
+                          land.health === 'Excellent' 
+                            ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/30' 
+                            : land.health === 'Needs Schema'
+                            ? 'bg-[#e5a004]/10 text-[#f5ca45]'
+                            : 'bg-rose-950/30 text-rose-400 border border-rose-500/10'
+                        }`}>
+                          {land.health}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1.5 border-t border-slate-850/40">
+                        <div className="flex items-center gap-1">
+                          <Link2 size={11} className="text-cyan-400" />
+                          <span>Cytowania: <strong className="text-white">{land.aiCitations}</strong></span>
+                        </div>
+                        <span>Crawl skany: <strong className="text-white">{land.botCrawls}</strong></span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* HIGH-FIDELITY GEO CLOSED-LOOP ATTRIBUTION PIPELINE (DEDYKOWANY LEJEK GEO / RAG) */}
+            <div className="p-5 border border-slate-850 rounded-xl bg-[#0a0d14] space-y-6">
+              
+              {/* Header Box */}
+              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-slate-900 pb-5">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 rounded-lg bg-cyan-950/40 border border-cyan-800/35 text-cyan-400">
+                      <Database size={15} />
+                    </span>
+                    <h3 className="font-bold text-sm text-white tracking-tight">
+                      {lang === 'pl'
+                        ? 'Wielopoziomowy Lejek Atrybucji GEO & Korelacji Logów (RAG Closed-Loop)'
+                        : 'Multi-Stage GEO Attribution Tunnel & Log Correlation (RAG Closed-Loop)'
+                      }
+                    </h3>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed font-sans max-w-3xl">
+                    {lang === 'pl'
+                      ? 'Innowacyjny, zintegrowany widok pokazujący pełną ścieżkę konwersji ze sztuczną inteligencją: od momentu, gdy bot LLM pobiera kod źródłowy Twojego sklepu (access.log), przez jego zapisanie w pamięci semantycznej modeli, aż po kliknięcie linku i sesję wejściową zidentyfikowaną w GA4.'
+                      : 'Isolate the causal link between crawl frequency, search engine recall, and actual buyer acquisition. This visual models bot raw server hits down to active GA4 customer visits.'
+                    }
+                  </p>
+                </div>
+
+                {/* Interactive Segment Filter Selector */}
+                <div className="flex flex-wrap items-center gap-1.5 bg-[#0e121a] p-1 border border-slate-800 rounded-lg">
+                  {[
+                    { id: 'ALL', name: lang === 'pl' ? 'Wszystkie AI' : 'All Models' },
+                    { id: 'OPENAI', name: 'OpenAI (GPTBot)' },
+                    { id: 'ANTHROPIC', name: 'ClaudeBot' },
+                    { id: 'PERPLEXITY', name: 'Perplexity' },
+                    { id: 'GEMINI', name: 'Gemini' }
+                  ].map((seg) => (
+                    <button
+                      key={seg.id}
+                      onClick={() => setFunnelFilter(seg.id as any)}
+                      className={`px-3 py-1 text-[10px] uppercase font-mono font-bold tracking-wider rounded-md transition cursor-pointer ${
+                        funnelFilter === seg.id 
+                          ? 'bg-cyan-500 text-slate-950 shadow-sm shadow-cyan-500/25' 
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
+                      }`}
+                    >
+                      {seg.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* DYNAMIC FUNNEL METRICS HELPER */}
+              {(() => {
+                let stats = {
+                  botName: 'Wszystkie Boty / Modele AI',
+                  crawls: 17420,
+                  gscImpressions: 34500,
+                  gscClicks: 8420,
+                  ga4Sessions: 4795,
+                  convCrawlToGsc: '48.33%',
+                  convGscToGa4: '56.94%',
+                  overallYield: '27.52%',
+                  botColor: 'text-cyan-400'
+                };
+                if (funnelFilter === 'OPENAI') {
+                  stats = {
+                    botName: 'GPTBot (OpenAI)',
+                    crawls: 8410,
+                    gscImpressions: 18200,
+                    gscClicks: 5320,
+                    ga4Sessions: 2823,
+                    convCrawlToGsc: '63.25%',
+                    convGscToGa4: '53.06%',
+                    overallYield: '33.56%',
+                    botColor: 'text-emerald-400'
+                  };
+                } else if (funnelFilter === 'ANTHROPIC') {
+                  stats = {
+                    botName: 'ClaudeBot (Anthropic)',
+                    crawls: 3550,
+                    gscImpressions: 5905,
+                    gscClicks: 1150,
+                    ga4Sessions: 420,
+                    convCrawlToGsc: '32.39%',
+                    convGscToGa4: '36.52%',
+                    overallYield: '11.83%',
+                    botColor: 'text-amber-450'
+                  };
+                } else if (funnelFilter === 'PERPLEXITY') {
+                  stats = {
+                    botName: 'Perplexity Bot',
+                    crawls: 2120,
+                    gscImpressions: 4800,
+                    gscClicks: 1330,
+                    ga4Sessions: 915,
+                    convCrawlToGsc: '62.73%',
+                    convGscToGa4: '68.79%',
+                    overallYield: '43.16%',
+                    botColor: 'text-indigo-400'
+                  };
+                } else if (funnelFilter === 'GEMINI') {
+                  stats = {
+                    botName: 'Google-Extended (Gemini)',
+                    crawls: 3340,
+                    gscImpressions: 5595,
+                    gscClicks: 1620,
+                    ga4Sessions: 637,
+                    convCrawlToGsc: '48.50%',
+                    convGscToGa4: '39.32%',
+                    overallYield: '19.07%',
+                    botColor: 'text-red-400'
+                  };
+                }
+
+                return (
+                  <div className="space-y-6">
+                    {/* Visual Waterfall Funnel Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 relative">
+                      
+                      {/* Step 1: Crawling Server Logs */}
+                      <div className="p-4 rounded-xl border border-slate-850 bg-[#0e121b] flex flex-col justify-between relative hover:border-slate-700 transition">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] uppercase font-bold text-slate-500 font-mono tracking-widest bg-slate-900 px-1.5 py-0.5 rounded">
+                              KROK 1 / STAGE 1
+                            </span>
+                            <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
+                          </div>
+                          <span className="block text-xs font-bold text-white tracking-tight">{lang === 'pl' ? 'Logi serwera: Crawlowanie' : 'Server Logs: Bot Crawls'}</span>
+                          <p className="text-[10px] text-slate-400 font-sans leading-relaxed">
+                            {lang === 'pl' 
+                              ? 'Analiza pliku access.log: skany wykonane przez dedykowane boty modeli LLM próbujące wydobyć strukturę strony Cosibella.pl.'
+                              : 'Actual direct raw HTTP crawler queries initiated on beauty categories & K-Beauty catalog.'
+                            }
+                          </p>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-slate-850 flex justify-between items-baseline">
+                          <span className="text-[10px] text-slate-500 font-bold">{lang === 'pl' ? 'Skanowania:' : 'Total Crawls:'}</span>
+                          <span className="text-xl font-extrabold text-cyan-400">{stats.crawls.toLocaleString()} <span className="text-[9px] font-medium text-slate-400">skanów</span></span>
+                        </div>
+                      </div>
+
+                      {/* Step 2: Generative Index updates */}
+                      <div className="p-4 rounded-xl border border-slate-850 bg-[#0e121b] flex flex-col justify-between relative hover:border-slate-700 transition">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] uppercase font-bold text-slate-500 font-mono tracking-widest bg-slate-900 px-1.5 py-0.5 rounded">
+                              KROK 2 / STAGE 2
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.2 bg-emerald-950/40 text-emerald-400 rounded-full border border-emerald-800/20 font-bold">
+                              RAG Ready
+                            </span>
+                          </div>
+                          <span className="block text-xs font-bold text-white tracking-tight">{lang === 'pl' ? 'Model LLM: Zapamiętanie' : 'Model Training & Memory'}</span>
+                          <p className="text-[10px] text-slate-400 font-sans leading-relaxed">
+                            {lang === 'pl'
+                              ? 'Dane asymilowane do wektorowej pamięci kontekstu. Wysoki crawl rate to gwarancja świeżości bazy wiedzy o marce w chatbotach.'
+                              : 'Extracted semantic vectors integrated instantly into pre-training weights and real-time generation indexes.'
+                            }
+                          </p>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-slate-850 flex justify-between items-baseline">
+                          <span className="text-[10px] text-slate-500 font-bold">{lang === 'pl' ? 'Współ. indeksacji:' : 'Crawl Index Yield:'}</span>
+                          <span className="text-sm font-extrabold text-emerald-400">{stats.convCrawlToGsc} <span className="text-[9px] font-medium text-slate-450">{lang === 'pl' ? 'pozytywny' : 'ratio'}</span></span>
+                        </div>
+                      </div>
+
+                      {/* Step 3: GSC Clickthrough */}
+                      <div className="p-4 rounded-xl border border-slate-850 bg-[#0e121b] flex flex-col justify-between relative hover:border-slate-700 transition">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] uppercase font-bold text-slate-500 font-mono tracking-widest bg-slate-900 px-1.5 py-0.5 rounded">
+                              KROK 3 / STAGE 3
+                            </span>
+                            <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+                          </div>
+                          <span className="block text-xs font-bold text-white tracking-tight">{lang === 'pl' ? 'Google Search Console (GSC)' : 'Search Console Mentions'}</span>
+                          <p className="text-[10px] text-slate-400 font-sans leading-relaxed">
+                            {lang === 'pl'
+                              ? 'Model generuje odpowiedź i cytuje Cosibellę z linkiem. Użytkownik klika, co przechodzi przez GSC jako zapytanie AI.'
+                              : 'User prompt retrieves Cosibella as recommendation, injecting high-click citations context into organic results.'
+                            }
+                          </p>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-slate-850 flex justify-between items-baseline">
+                          <span className="text-[10px] text-slate-500 font-bold">{lang === 'pl' ? 'Kliknięcia GSC:' : 'GSC Clicks:'}</span>
+                          <span className="text-xl font-extrabold text-purple-400">{stats.gscClicks.toLocaleString()} <span className="text-[9px] font-medium text-slate-400">kliknięć</span></span>
+                        </div>
+                      </div>
+
+                      {/* Step 4: GA4 Active sessions */}
+                      <div className="p-4 rounded-xl border border-slate-855 bg-[#121622] flex flex-col justify-between relative hover:border-slate-755 transition ring-1 ring-cyan-500/20">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] uppercase font-bold text-cyan-400 font-mono tracking-widest bg-cyan-950 px-1.5 py-0.5 rounded">
+                              GA4 SESSIONS / OUTCOME
+                            </span>
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                          </div>
+                          <span className="block text-xs font-bold text-cyan-400 tracking-tight">{lang === 'pl' ? 'Ruch GA4 (Sesje K-Beauty)' : 'GA4 Referrals Traffic'}</span>
+                          <p className="text-[10px] text-slate-400 font-sans leading-relaxed">
+                            {lang === 'pl'
+                              ? 'Zakończenie pętli. Sesje wejściowe zarejestrowane z atrybutem chatbotów zidentyfikowane z filtracji GA4.'
+                              : 'Actual sessions validated in Google Analytics 4 tracking dashboard matching active regex profiles.'
+                            }
+                          </p>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-slate-850 flex justify-between items-baseline">
+                          <span className="text-[10px] text-slate-500 font-bold">{lang === 'pl' ? 'Sesje GA4:' : 'GA4 Sessions:'}</span>
+                          <span className="text-xl font-extrabold text-cyan-400">{stats.ga4Sessions.toLocaleString()} <span className="text-[9px] font-medium text-slate-400">sesji</span></span>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* Funnel yield metrics bar */}
+                    <div className="p-4 bg-slate-900/50 border border-slate-850 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 font-mono">
+                      <div className="flex items-center gap-3">
+                        <span className="text-3xl font-extrabold text-cyan-400 tracking-tight">{stats.overallYield}</span>
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] text-slate-300 font-bold block uppercase">
+                            {lang === 'pl' ? 'Ogólna Wydajność Atrybucji RAG' : 'Overall RAG Attribution Efficiency'}
+                          </span>
+                          <span className="text-[9px] text-slate-500 block leading-none">
+                            {lang === 'pl'
+                              ? `Model wylicza: ile sesji w GA4 pozyskujesz na każde 100 skanów bota ${stats.botName}.`
+                              : `Causal mapping: actual user sessions acquired per each 100 raw AI bot server logs crawlings.`
+                            }
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 text-xs font-semibold pr-2">
+                        <div className="text-right">
+                          <span className="text-[9px] text-slate-500 block uppercase font-bold">{lang === 'pl' ? 'Przejście Skan -> Kliknięcie:' : 'Crawl -> Click Recovery:'}</span>
+                          <span className="text-white font-bold">{stats.convCrawlToGsc}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[9px] text-slate-500 block uppercase font-bold">{lang === 'pl' ? 'Przejście Kliknięcie -> Sesja:' : 'Click -> Session Recovery:'}</span>
+                          <span className="text-emerald-400 font-bold">{stats.convGscToGa4}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* MATRIX TABLE COMPARING SPECIFIC LANDING PAGE FLOWS */}
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-bold text-white tracking-wider uppercase font-mono block">
+                        {lang === 'pl' ? 'Matryca Korelacji Podstron Cosibella dla Wybranej Grupy' : 'Granular Page Correlation Matrix For Cosibella'}
+                      </h4>
+                      <p className="text-[10px] text-slate-400 leading-normal font-sans">
+                        {lang === 'pl'
+                          ? 'Szczegółowa korelacjonalna tabela rzutująca liczbę skanów konkretnych robotów na zarejestrowane pozycje fraz w Google Search Console oraz ruch w GA4 z tym związany.'
+                          : 'Overlay of individual landing pages traffic: correlating crawler index scans, GSC generated visibility and final GA4 analytics referral sessions.'
+                        }
+                      </p>
+
+                      <div className="overflow-x-auto border border-slate-850/70 rounded-lg">
+                        <table className="w-full text-left font-mono">
+                          <thead className="bg-[#121621] text-[9px] text-slate-400 uppercase border-b border-slate-800">
+                            <tr>
+                              <th className="p-3 text-left font-bold">{lang === 'pl' ? 'Monitorowany URL' : 'Target landing URL'}</th>
+                              <th className="p-3 text-center font-bold">
+                                {lang === 'pl' ? 'Logi Serwera (Skan bota)' : 'Server logs (Crawl)'}
+                              </th>
+                              <th className="p-3 text-center font-bold">
+                                {lang === 'pl' ? 'Kliknięcia GSC (Zapytania AI)' : 'GSC Clicks (AI Segment)'}
+                              </th>
+                              <th className="p-3 text-center font-bold">
+                                {lang === 'pl' ? 'GA4 Sesje (Live API)' : 'GA4 Sessions (Regex filter)'}
+                              </th>
+                              <th className="p-3 text-right font-bold">
+                                {lang === 'pl' ? 'Wskaźnik Atrybucji' : 'Attribution yield'}
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-850/40 text-[10px] text-slate-300">
+                            {[
+                              { 
+                                path: '/sklep/koreanskie-kosmetyki', 
+                                desc: 'Koreańskie Kosmetyki K-Beauty',
+                                crawls: Math.round(stats.crawls * 0.45), 
+                                clicks: Math.round(stats.gscClicks * 0.48), 
+                                sessions: Math.round(stats.ga4Sessions * 0.51),
+                                yieldPct: '31.1%'
+                              },
+                              { 
+                                path: '/sklep/kremy-z-retinolem', 
+                                desc: 'Kremy z retinolem i przeciwstarzeniowe',
+                                crawls: Math.round(stats.crawls * 0.25), 
+                                clicks: Math.round(stats.gscClicks * 0.22), 
+                                sessions: Math.round(stats.ga4Sessions * 0.20),
+                                yieldPct: '22.0%'
+                              },
+                              { 
+                                path: '/blog/konsultacje-kosmetologiczne-online', 
+                                desc: 'Konsultacje Kosmetologiczne Online we współpracy z AI',
+                                crawls: Math.round(stats.crawls * 0.18), 
+                                clicks: Math.round(stats.gscClicks * 0.16), 
+                                sessions: Math.round(stats.ga4Sessions * 0.17),
+                                yieldPct: '26.0%'
+                              },
+                              { 
+                                path: '/sklep/serum-z-witamina-c', 
+                                desc: 'Serum z witaminą C, antyoksydanty',
+                                crawls: Math.round(stats.crawls * 0.12), 
+                                clicks: Math.round(stats.gscClicks * 0.14), 
+                                sessions: Math.round(stats.ga4Sessions * 0.12),
+                                yieldPct: '27.5%'
+                              }
+                            ].map((row, idx) => {
+                              const calcYield = row.crawls > 0 ? ((row.sessions / row.crawls) * 100).toFixed(1) + '%' : '0.0%';
+                              return (
+                                <tr key={idx} className="hover:bg-slate-900/40 transition">
+                                  <td className="p-3 text-left">
+                                    <div className="flex flex-col">
+                                      <span className="text-white text-xs font-bold">{row.desc}</span>
+                                      <span className="text-[9px] text-slate-500 font-mono block truncate">{row.path}</span>
+                                    </div>
+                                  </td>
+                                  <td className="p-3 text-center text-cyan-400 font-extrabold">{row.crawls.toLocaleString()}</td>
+                                  <td className="p-3 text-center text-purple-400 font-extrabold">{row.clicks.toLocaleString()}</td>
+                                  <td className="p-3 text-center text-emerald-400 font-extrabold">{row.sessions.toLocaleString()}</td>
+                                  <td className="p-3 text-right">
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#141822] text-cyan-300 border border-cyan-800/25">
+                                      {calcYield}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+            </div>
+          </div>
+        );
+      })()}
 
       {/* SUB-TAB: CITATION STRATEGY PLANS COSIBELILA */}
       {activeSubTab === 'STRATEGY' && (
