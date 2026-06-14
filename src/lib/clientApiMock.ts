@@ -690,20 +690,174 @@ if (isStaticOrOffline()) {
         }
       }
 
-      if (path === '/api/live-query') {
-        const { query: q, country, llm } = requestBody;
+      if (path === '/api/live-query' || path === '/api/simulate-serp') {
+        const { query: q, country, llm, brand, competitors = [], userKeys = {} } = requestBody;
         const countryKey = (country || 'PL') as keyof typeof COUNTRIES_MAPPING;
         const cMeta = COUNTRIES_MAPPING[countryKey] || COUNTRIES_MAPPING.PL;
-        const simulated = generateAIFallback(q || 'kosmetyki k-beauty', countryKey, llm || 'Gemini', cMeta);
-        return createJsonResponse(simulated);
-      }
+        const localBrand = brand || cMeta.localBrand;
+        const competitorsList = (competitors && competitors.length > 0)
+          ? competitors.join(', ')
+          : cMeta.competitors.join(', ');
+        const currentLanguage = cMeta.language;
+        const currentLocale = cMeta.name;
 
-      if (path === '/api/simulate-serp') {
-        const { query: q, country, llm } = requestBody;
-        const countryKey = (country || 'PL') as keyof typeof COUNTRIES_MAPPING;
-        const cMeta = COUNTRIES_MAPPING[countryKey] || COUNTRIES_MAPPING.PL;
-        const simulated = generateAIFallback(q || 'kosmetyki k-beauty', countryKey, llm || 'Gemini', cMeta);
-        return createJsonResponse(simulated);
+        // Extract user keys provided in the app Settings
+        const keyOpenAI = userKeys.openai || '';
+        const keyAnthropic = userKeys.anthropic || '';
+        const keyPerplexity = userKeys.perplexity || '';
+        const keyGemini = userKeys.gemini || '';
+
+        let rawAnswer = '';
+        let attributionSource = 'Simulation (Search Grounding)';
+
+        try {
+          if (llm === 'ChatGPT' && keyOpenAI) {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${keyOpenAI}`
+              },
+              body: JSON.stringify({
+                model: 'gpt-4o-mini',
+                messages: [
+                  { role: 'system', content: `You are a helpful beauty advisor specialized in skincare, responding in ${currentLanguage}. Context: User is searching from ${currentLocale}. Mention relevant local brands like ${localBrand} and competitors: ${competitorsList}.` },
+                  { role: 'user', content: q }
+                ],
+                max_tokens: 600,
+                temperature: 0.7
+              })
+            });
+            const data = await response.json();
+            if (data.error) throw new Error(data.error.message || 'OpenAI API Error');
+            rawAnswer = data.choices[0].message.content || '';
+            attributionSource = 'Direct OpenAI API (Client-side)';
+          } else if (llm === 'Claude' && keyAnthropic) {
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': keyAnthropic,
+                'anthropic-version': '2023-06-01',
+                'anthropic-dangerous-direct-browser-access': 'true'
+              },
+              body: JSON.stringify({
+                model: 'claude-3-5-haiku-20241022',
+                max_tokens: 600,
+                system: `You are a professional skincare counselor responding in ${currentLanguage}. Location: ${currentLocale}. Recommend stores honestly, including ${localBrand} and competitors: ${competitorsList}.`,
+                messages: [{ role: 'user', content: q }]
+              })
+            });
+            const data = await response.json();
+            if (data.error) throw new Error(typeof data.error === 'string' ? data.error : (data.error.message || 'Anthropic API Error'));
+            rawAnswer = data.content[0].text || '';
+            attributionSource = 'Direct Anthropic API (Client-side)';
+          } else if (llm === 'Perplexity' && keyPerplexity) {
+            const response = await fetch('https://api.perplexity.ai/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${keyPerplexity}`
+              },
+              body: JSON.stringify({
+                model: 'sonar',
+                messages: [
+                  { role: 'system', content: `You are an online beauty search assistant for customers in ${currentLocale}, answering in ${currentLanguage}. Cite relevant stores including ${localBrand} and other major regional rivals: ${competitorsList} based on web lookups.` },
+                  { role: 'user', content: q }
+                ],
+                max_tokens: 650,
+                temperature: 0.5
+              })
+            });
+            const data = await response.json();
+            if (data.error) throw new Error(data.error.message || 'Perplexity API Error');
+            rawAnswer = data.choices[0].message.content || '';
+            attributionSource = 'Direct Perplexity Sonar API (Client-side)';
+          } else if (llm === 'Gemini' && keyGemini) {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${keyGemini}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: q }] }],
+                systemInstruction: {
+                  parts: [{ text: `You are a conversational skincare expert responding in ${currentLanguage}. Context: User is residing in ${currentLocale}. Mention local beauty stores like ${localBrand} and competitors: ${competitorsList} where helpful.` }]
+                },
+                generationConfig: {
+                  temperature: 0.6,
+                  maxOutputTokens: 800
+                }
+              })
+            });
+            const data = await response.json();
+            if (data.error) throw new Error(data.error.message || 'Gemini API Error');
+            rawAnswer = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            attributionSource = 'Direct Gemini API (Client-side)';
+          }
+        } catch (error: any) {
+          console.warn('Real AI API key call failed, falling back to simulated generation:', error);
+        }
+
+        if (!rawAnswer) {
+          const simulated = generateAIFallback(q || 'kosmetyki k-beauty', countryKey, llm || 'Gemini', cMeta);
+          return createJsonResponse({
+            ...simulated,
+            attributionSource: 'Safe Emulated Model Fallback (Static Pages)'
+          });
+        }
+
+        // Metrics evaluation logic based on raw response text
+        const textLower = rawAnswer.toLowerCase();
+        const brandLower = localBrand.toLowerCase();
+        const isBrandPresent = textLower.includes(brandLower);
+
+        let rankingPosition = 'Not mentioned';
+        let shareOfVoice = 0;
+        let sentiment = 'none';
+
+        if (isBrandPresent) {
+          const idx = textLower.indexOf(brandLower);
+          const textBefore = textLower.substring(0, idx);
+          const parsedCompetitors = (competitors && competitors.length > 0) ? competitors : cMeta.competitors;
+          const competitorMentionsBefore = parsedCompetitors.filter((c: any) => textBefore.includes(c.toLowerCase())).length;
+
+          if (competitorMentionsBefore === 0) {
+            rankingPosition = '#1 recommendation';
+            shareOfVoice = Math.round(55 + Math.random() * 30);
+          } else if (competitorMentionsBefore <= 2) {
+            rankingPosition = 'Top 3';
+            shareOfVoice = Math.round(30 + Math.random() * 25);
+          } else {
+            rankingPosition = 'Top 10';
+            shareOfVoice = Math.round(10 + Math.random() * 20);
+          }
+
+          const contextSnippet = textLower.substring(Math.max(0, idx - 150), Math.min(textLower.length, idx + 250));
+          const positiveTriggers = ['polecam', 'świetny', 'najlepszy', 'recommended', 'excellent', 'best', 'top', 'highly', 'great', 'leader', 'specialist', 'specjalizuje', 'wiodący', 'doskonały', 'szybko', 'profesjonaln'].filter(w => contextSnippet.includes(w)).length;
+          const negativeTriggers = ['słaby', 'ograniczony', 'drogi', 'expensive', 'limited', 'lacks', 'nieznany', 'problem'].filter(w => contextSnippet.includes(w)).length;
+          
+          sentiment = positiveTriggers > negativeTriggers ? 'positive' : negativeTriggers > positiveTriggers ? 'negative' : 'neutral';
+        }
+
+        const actuallyMentionedCompetitors = ((competitors && competitors.length > 0) ? competitors : cMeta.competitors)
+          .filter((c: any) => textLower.includes(c.toLowerCase()));
+
+        return createJsonResponse({
+          answer: rawAnswer,
+          brandPresence: isBrandPresent,
+          rankingPosition,
+          shareOfVoice,
+          sentiment,
+          competitorsMentioned: actuallyMentionedCompetitors,
+          contextTags: ['SKINCARE', 'K-BEAUTY', currentLocale.toUpperCase()],
+          attributionSource,
+          reverseEngineeringFactors: [
+            `Direct client-side API trigger matching on local brand entities.`,
+            `Real-time generative browser lookup formulation.`
+          ],
+          promptOptimizationAdvice: `Expand semantic variations of targeted keywords in your ${currentLanguage} category headers to increase first-choice ranking.`
+        });
       }
 
       if (path === '/api/query-fanout') {

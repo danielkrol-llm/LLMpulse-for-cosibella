@@ -14,6 +14,8 @@ import LogAnalyzer from './components/LogAnalyzer';
 import QueryFanout from './components/QueryFanout';
 import GEOToolSuite from './components/GEOToolSuite';
 import SettingsTab from './components/SettingsTab';
+import GSCAnalyticsHub from './components/GSCAnalyticsHub';
+import SentinelSuite from './components/SentinelSuite';
 import { translations } from './translations';
 import { db, auth, googleProvider } from './firebase';
 import { onAuthStateChanged, signInWithPopup, signOut, User } from 'firebase/auth';
@@ -49,14 +51,15 @@ import {
   Settings,
   LogIn,
   LogOut,
-  Database
+  Database,
+  ShieldAlert
 } from 'lucide-react';
 
 export default function App() {
   const [lang, setLang] = useState<'pl' | 'en'>('pl');
   const t = translations[lang];
 
-  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'SANDBOX' | 'OPTIMIZATIONS' | 'GAPS' | 'LOG_ANALYZER' | 'QUERY_FANOUT' | 'GEOTOOLSUITE' | 'SETTINGS'>('DASHBOARD');
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'SANDBOX' | 'OPTIMIZATIONS' | 'GAPS' | 'LOG_ANALYZER' | 'QUERY_FANOUT' | 'GEOTOOLSUITE' | 'GA4_GSC' | 'SENTINEL' | 'SETTINGS'>('DASHBOARD');
 
   // Core aggregated state
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -699,6 +702,46 @@ export default function App() {
                 </div>
                 <span className="font-extrabold text-[8px] text-[#95a3ff] bg-indigo-950/40 px-1 py-0.5 rounded border border-indigo-900/30">
                   CEE PRO
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab('GA4_GSC');
+                  addConsoleLog(lang === 'pl' ? 'Otwarto panel integracji Google Search Console & GA4' : 'Opened Google Search Console & GA4 Integration dashboard');
+                }}
+                className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center justify-between cursor-pointer text-left ${
+                  activeTab === 'GA4_GSC'
+                    ? 'bg-[#151921] text-cyan-400 border border-cyan-500/10 shadow-sm shadow-cyan-950/20 font-extrabold'
+                    : 'text-slate-400 hover:text-indigo-200 hover:bg-[#151921]/30 border border-transparent'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Database className={`w-4 h-4 ${activeTab === 'GA4_GSC' ? 'text-purple-400' : 'text-slate-500'}`} />
+                  <span>GSC & GA4 Sync</span>
+                </div>
+                <span className="font-extrabold text-[8px] text-purple-400 bg-purple-950/40 px-1 py-0.5 rounded border border-purple-900/30">
+                  LIVE
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab('SENTINEL');
+                  addConsoleLog(lang === 'pl' ? 'Otwarto pakiet Sentinel & Advanced Content Audit' : 'Activated Sentinel & Advanced Content Audit suite');
+                }}
+                className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center justify-between cursor-pointer text-left ${
+                  activeTab === 'SENTINEL'
+                    ? 'bg-[#151921] text-cyan-400 border border-cyan-500/10 shadow-sm shadow-cyan-950/20 font-extrabold'
+                    : 'text-slate-400 hover:text-indigo-200 hover:bg-[#151921]/30 border border-transparent'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <ShieldAlert className={`w-4 h-4 ${activeTab === 'SENTINEL' ? 'text-violet-400' : 'text-slate-500'}`} />
+                  <span>Sentinel Suite</span>
+                </div>
+                <span className="font-extrabold text-[8px] text-violet-400 bg-violet-950/40 px-1 py-0.5 rounded border border-violet-900/30">
+                  PRO
                 </span>
               </button>
 
@@ -1498,6 +1541,31 @@ export default function App() {
         {activeTab === 'GEOTOOLSUITE' && (
           <div className="animate-linear duration-200">
             <GEOToolSuite lang={lang} onAddLogMessage={addConsoleLog} />
+          </div>
+        )}
+
+        {/* VIEW I: GSC & GA4 Sync Tab */}
+        {activeTab === 'GA4_GSC' && (
+          <div className="animate-linear duration-200">
+            <GSCAnalyticsHub 
+              lang={lang} 
+              onAddLogMessage={addConsoleLog}
+              onAuditQueryInSandbox={(queryText) => {
+                setActiveTab('SANDBOX');
+                localStorage.setItem('sandbox_direct_query', queryText);
+                window.dispatchEvent(new CustomEvent('audit_gsc_query', { detail: queryText }));
+              }}
+            />
+          </div>
+        )}
+
+        {/* VIEW J: SENTINEL Suite Tab */}
+        {activeTab === 'SENTINEL' && (
+          <div className="animate-linear duration-200">
+            <SentinelSuite 
+              lang={lang} 
+              onAddLogMessage={addConsoleLog}
+            />
           </div>
         )}
 

@@ -180,6 +180,19 @@ export default function AISerperEmulator({
     }
   }, []);
 
+  // Listen for custom GSC audits selection
+  useEffect(() => {
+    const handleGscAudit = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        setCustomQuery(customEvent.detail);
+        setActiveSubTab('MONITOR');
+      }
+    };
+    window.addEventListener('audit_gsc_query', handleGscAudit);
+    return () => window.removeEventListener('audit_gsc_query', handleGscAudit);
+  }, []);
+
   // --- BATCH TESTING CONFIGS & RESULTS ---
   const [batchQueriesText, setBatchQueriesText] = useState(
     lang === 'pl'
