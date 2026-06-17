@@ -18,6 +18,7 @@ import GSCAnalyticsHub from './components/GSCAnalyticsHub';
 import SentinelSuite from './components/SentinelSuite';
 import OnboardingTour, { OnboardingReplayButton } from './components/OnboardingTour';
 import ContentGenerator from './components/ContentGenerator';
+import SocialMediaHub from './components/SocialMediaHub';
 import { translations } from './translations';
 import { db, auth, googleProvider } from './lib/firebase';
 import { User } from 'firebase/auth';
@@ -72,7 +73,7 @@ function AppContent() {
   const t = translations[lang];
   const [showTour, setShowTour] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'SANDBOX' | 'OPTIMIZATIONS' | 'GAPS' | 'LOG_ANALYZER' | 'QUERY_FANOUT' | 'CONTENT_GENERATOR' | 'GEOTOOLSUITE' | 'GA4_GSC' | 'SENTINEL' | 'SETTINGS'>('DASHBOARD');
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'SANDBOX' | 'OPTIMIZATIONS' | 'GAPS' | 'LOG_ANALYZER' | 'QUERY_FANOUT' | 'CONTENT_GENERATOR' | 'GEOTOOLSUITE' | 'GA4_GSC' | 'SENTINEL' | 'SOCIAL' | 'SETTINGS'>('DASHBOARD');
 
   // Core aggregated state
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -796,6 +797,27 @@ function AppContent() {
                 </div>
                 <span className="font-extrabold text-[8px] text-violet-400 bg-violet-950/40 px-1 py-0.5 rounded border border-violet-900/30">
                   PRO
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab('SOCIAL');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  addConsoleLog(lang === 'pl' ? 'Otwarto Social & Ads Hub' : 'Opened Social & Ads Hub');
+                }}
+                className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center justify-between cursor-pointer text-left ${
+                  activeTab === 'SOCIAL'
+                    ? 'bg-gradient-to-r from-cyan-950/30 to-[#151921] text-cyan-400 border border-cyan-500/20 border-l-2 border-l-cyan-400 shadow-sm shadow-cyan-950/20 font-extrabold'
+                    : 'text-slate-400 hover:text-pink-200 hover:bg-[#151921]/30 border border-transparent'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Heart className={`w-4 h-4 ${activeTab === 'SOCIAL' ? 'text-pink-400' : 'text-slate-500'}`} />
+                  <span>{lang === 'pl' ? 'Social & Ads' : 'Social & Ads'}</span>
+                </div>
+                <span className="font-extrabold text-[8px] text-pink-400 bg-pink-950/40 px-1 py-0.5 rounded border border-pink-900/30">
+                  NEW
                 </span>
               </button>
 
@@ -1644,6 +1666,13 @@ function AppContent() {
               lang={lang} 
               onAddLogMessage={addConsoleLog}
             />
+          </div>
+        )}
+
+        {/* VIEW SOCIAL: Social & Ads Hub */}
+        {activeTab === 'SOCIAL' && (
+          <div className="animate-linear duration-200">
+            <SocialMediaHub lang={lang} onAddLogMessage={addConsoleLog} />
           </div>
         )}
 

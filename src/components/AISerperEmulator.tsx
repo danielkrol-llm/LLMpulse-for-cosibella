@@ -91,6 +91,15 @@ export default function AISerperEmulator({
 
   const [monitorResults, setMonitorResults] = useState<Record<string, any> | null>(null);
 
+  // Ads Copy panel state (Prompt 4)
+  const [adsExpanded, setAdsExpanded]     = useState(false);
+  const [adsPlatform, setAdsPlatform]     = useState('TikTok');
+  const [adsGoal, setAdsGoal]             = useState('Sprzedaż');
+  const [adsLoading, setAdsLoading]       = useState(false);
+  const [adsError, setAdsError]           = useState('');
+  const [adsResults, setAdsResults]       = useState<{ headline: string; primaryText: string; cta: string; whyItWorks: string }[]>([]);
+  const [adsCopied, setAdsCopied]         = useState<number | null>(null);
+
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoadingCloud, setIsLoadingCloud] = useState(false);
 
@@ -155,6 +164,77 @@ export default function AISerperEmulator({
       console.warn('Firestore sync failed or offline:', e);
     } finally {
       setIsLoadingCloud(false);
+    }
+  };
+
+  // ── Ads copy generator from audit data ───────────────────────────────────
+  const generateAdsCopy = async () => {
+    if (!monitorResults) return;
+    const apiKey = (JSON.parse(localStorage.getItem('llm-auditor-keys') ?? '{}') as { anthropic?: string }).anthropic ?? '';
+    if (!apiKey) { setAdsError(lang === 'pl' ? 'Brak klucza Anthropic API — Ustawienia → API Keys' : 'Missing Anthropic API key — Settings → API Keys'); return; }
+
+    setAdsLoading(true);
+    setAdsError('');
+    setAdsResults([]);
+
+    // Extract context from monitorResults
+    const entries = Object.values(monitorResults) as any[];
+    const sentiments = entries.map(e => e.sentiment).filter(Boolean);
+    const dominant = sentiments.length
+      ? (['positive','neutral','negative'] as const).reduce((best, s) => sentiments.filter(x => x === s).length > sentiments.filter(x => x === best).length ? s : best, 'neutral' as string)
+      : 'neutral';
+    const phrases = entries.flatMap(e => {
+      const ans: string = e.answer ?? '';
+      return ans.split(/[.!?]/).filter(s => s.toLowerCase().includes((brandToTrack ?? 'cosibella').toLowerCase())).slice(0, 1);
+    }).filter(Boolean).slice(0, 2);
+    const competitors = [...new Set(entries.flatMap(e => e.competitorsMentioned ?? []))];
+
+    const systemPrompt = `You are a performance marketing specialist for Cosibella.pl (K-Beauty CEE).
+You have real data from AI search engines about how the brand is perceived:
+- Query that triggers brand mentions: '${customQuery}'
+- Brand sentiment in AI answers: ${dominant}
+- How AI describes the brand: ${phrases.join(' | ') || 'K-Beauty specialist'}
+- Competitors mentioned alongside: ${competitors.join(', ') || 'Hebe, Notino, Douglas'}
+- Target market: ${selectedCountry}
+
+Create 3 ad copy variants for ${adsPlatform} optimized for ${adsGoal}.
+Each variant must:
+1. Use the exact phrasing that AI uses to describe Cosibella
+2. Differentiate from competitors based on what's NOT said about them
+3. Be localized for ${selectedCountry} market cultural context
+Return JSON array: [{"headline":"...","primaryText":"...","cta":"...","whyItWorks":"..."}]`;
+
+    try {
+      let results: typeof adsResults = [];
+
+      try {
+        const r = await fetch('/api/ads-from-audit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: customQuery, brandSentiment: dominant, brandPhrases: phrases, competitors, platform: adsPlatform, goal: adsGoal, lang, country: selectedCountry }),
+          signal: AbortSignal.timeout(6000),
+        });
+        if (r.ok) results = (await r.json()).variants ?? [];
+      } catch { /* fallback */ }
+
+      if (!results.length) {
+        const r = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+          body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2048, system: systemPrompt, messages: [{ role: 'user', content: 'Generate 3 ad copy variants as JSON array.' }] }),
+        });
+        const d = await r.json() as { content?: { text: string }[] };
+        const raw = d.content?.[0]?.text ?? '[]';
+        const match = raw.match(/\[[\s\S]*\]/);
+        results = match ? JSON.parse(match[0]) : [];
+      }
+
+      setAdsResults(results);
+      onAddLogMessage?.(lang === 'pl' ? `Wygenerowano ${results.length} wariantów copy z danych audytu` : `Generated ${results.length} ad copy variants from audit data`);
+    } catch (err: unknown) {
+      setAdsError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAdsLoading(false);
     }
   };
 
@@ -986,6 +1066,107 @@ export default function AISerperEmulator({
                       })}
                     </div>
 
+                  </div>
+                )}
+
+                {/* ── Ads Copy panel (collapsible, shown after audit) ── */}
+                {!isAuditing && monitorResults && (
+                  <div className="mt-4 border border-slate-800 rounded-xl overflow-hidden">
+                    <button
+                      onClick={() => setAdsExpanded(v => !v)}
+                      className="w-full flex items-center justify-between px-4 py-3 bg-[#0d1017] text-xs font-bold text-slate-300 hover:text-white transition cursor-pointer"
+                    >
+                      <span>🎯 {lang === 'pl' ? 'Generuj copy reklamowe z tych danych' : 'Generate ad copy from this data'} {adsExpanded ? '▲' : '▼'}</span>
+                      {adsResults.length > 0 && <span className="text-[9px] text-emerald-400 font-mono">{adsResults.length} wariantów</span>}
+                    </button>
+
+                    <div style={{ maxHeight: adsExpanded ? 2000 : 0, overflow: 'hidden', transition: 'max-height 0.35s ease' }}>
+                      <div className="bg-[#090b10] border-t border-slate-800 p-4 space-y-4">
+
+                        {/* Auto-extracted context */}
+                        {(() => {
+                          const entries = Object.values(monitorResults) as any[];
+                          const sentiments = entries.map(e => e.sentiment).filter(Boolean);
+                          const dominant = sentiments.length
+                            ? (['positive','neutral','negative'] as const).reduce((b, s) => sentiments.filter(x => x === s).length > sentiments.filter(x => x === b).length ? s : b, 'neutral' as string)
+                            : 'neutral';
+                          const competitors = [...new Set(entries.flatMap(e => e.competitorsMentioned ?? []))];
+                          const phrases = entries.flatMap(e => {
+                            const ans: string = e.answer ?? '';
+                            return ans.split(/[.!?]/).filter(s => s.toLowerCase().includes((brandToTrack ?? 'cosibella').toLowerCase())).slice(0, 1);
+                          }).filter(Boolean).slice(0, 2);
+                          return (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[10px] font-mono">
+                              {[
+                                [lang === 'pl' ? 'Sentyment' : 'Sentiment', dominant],
+                                [lang === 'pl' ? 'Zapytanie' : 'Query', customQuery.slice(0, 30)],
+                                [lang === 'pl' ? 'Konkurenci' : 'Competitors', competitors.slice(0, 3).join(', ') || '—'],
+                                [lang === 'pl' ? 'Frazy AI' : 'AI phrases', phrases[0]?.slice(0, 35) ?? '—'],
+                              ].map(([k, v]) => (
+                                <div key={k} className="bg-slate-900/50 border border-slate-800 rounded-lg p-2 space-y-0.5">
+                                  <div className="text-slate-500 uppercase tracking-wider text-[9px]">{k}</div>
+                                  <div className="text-slate-200 font-bold leading-snug">{v}</div>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+
+                        {/* Config row */}
+                        <div className="flex flex-wrap gap-3 items-end">
+                          <div>
+                            <div className="text-[9px] font-mono text-slate-500 uppercase mb-1">{lang === 'pl' ? 'Platforma' : 'Platform'}</div>
+                            <select value={adsPlatform} onChange={e => setAdsPlatform(e.target.value)}
+                              className="text-xs font-mono border border-slate-800 bg-[#151921] py-1.5 px-3 rounded-lg text-slate-300 focus:outline-none focus:border-cyan-500 cursor-pointer">
+                              {['TikTok','Instagram','Meta Ads','Facebook'].map(p => <option key={p} value={p}>{p}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <div className="text-[9px] font-mono text-slate-500 uppercase mb-1">{lang === 'pl' ? 'Cel' : 'Goal'}</div>
+                            <select value={adsGoal} onChange={e => setAdsGoal(e.target.value)}
+                              className="text-xs font-mono border border-slate-800 bg-[#151921] py-1.5 px-3 rounded-lg text-slate-300 focus:outline-none focus:border-cyan-500 cursor-pointer">
+                              {['Sprzedaż','Ruch na stronę','Świadomość'].map(g => <option key={g} value={g}>{g}</option>)}
+                            </select>
+                          </div>
+                          <button onClick={generateAdsCopy} disabled={adsLoading}
+                            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-700 hover:opacity-95 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition cursor-pointer">
+                            {adsLoading ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" />{lang === 'pl' ? 'Generuję…' : 'Generating…'}</> : <><Sparkles className="w-3.5 h-3.5" />{lang === 'pl' ? 'Generuj 3 warianty copy ↗' : 'Generate 3 copy variants ↗'}</>}
+                          </button>
+                        </div>
+
+                        {adsError && (
+                          <div className="flex items-start gap-2 p-3 bg-rose-950/30 border border-rose-900/40 rounded-lg text-[11px] text-rose-400">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                            {adsError}
+                          </div>
+                        )}
+
+                        {/* Variants */}
+                        {adsResults.length > 0 && (
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            {adsResults.map((v, i) => (
+                              <div key={i} className="bg-[#0d1017] border border-slate-800 rounded-xl p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[9px] font-mono font-bold text-cyan-400 uppercase">#{i + 1}</span>
+                                  <button onClick={() => { navigator.clipboard.writeText(`${v.headline}\n${v.primaryText}\n${v.cta}`); setAdsCopied(i); setTimeout(() => setAdsCopied(null), 2000); }}
+                                    className="text-[10px] text-slate-400 hover:text-white cursor-pointer flex items-center gap-1">
+                                    {adsCopied === i ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                  </button>
+                                </div>
+                                <p className="text-xs font-extrabold text-white leading-snug">{v.headline}</p>
+                                <p className="text-[11px] text-slate-300 leading-relaxed">{v.primaryText}</p>
+                                <p className="text-[10px] font-bold text-cyan-400">{v.cta}</p>
+                                {v.whyItWorks && (
+                                  <p className="text-[9px] text-slate-500 italic leading-snug border-t border-slate-800 pt-2">
+                                    {v.whyItWorks}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
 

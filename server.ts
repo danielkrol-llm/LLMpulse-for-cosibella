@@ -1447,6 +1447,98 @@ app.get('/api/scheduler-settings', (req, res) => {
   });
 });
 
+// ── Social copy generator ─────────────────────────────────────────────────
+app.post('/api/social-copy', async (req: Request, res: Response) => {
+  const { platform, goal, product, usp, tone, cta, variantsCount = 3, llmContext = '', lang = 'pl' } = req.body;
+  const keyAnthropic = req.body.userKeys?.anthropic ?? process.env.ANTHROPIC_API_KEY ?? '';
+  if (!keyAnthropic) return res.status(401).json({ error: 'Missing Anthropic API key' });
+
+  const systemPrompt = `You are a senior social media copywriter specializing in beauty and skincare brands in Central Eastern Europe. You write for Cosibella.pl — a K-Beauty and dermocosmetics specialist store.
+Platform: ${platform}. Goal: ${goal}. Tone: ${tone}.
+Rules:
+- Hook must stop the scroll in first 3 words
+- Use sensory language specific to skincare (texture, feel, scent, skin transformation)
+- Include social proof signals where natural (bestseller, 5-star, dermatologist-tested)
+- CTA must create urgency or curiosity without being spammy
+- For TikTok/Reels: write as if it's a script with [VISUAL] stage directions in brackets
+- For Meta Ads: separate Headline (max 40 chars) | Primary Text (max 125 chars) | Description (max 30 chars)
+${llmContext ? 'Brand context from AI search data: ' + llmContext : ''}
+Return JSON array of ${variantsCount} objects: [{"hook":"...","body":"...","hashtags":["..."],"headline":"...","primaryText":"...","description":"..."}]`;
+
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': keyAnthropic, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2048, system: systemPrompt, messages: [{ role: 'user', content: `Product: ${product}. USP: ${usp}. CTA: ${cta}. Return ${variantsCount} variants as JSON array only.` }] }),
+    });
+    const d = await r.json() as { content?: { text: string }[]; error?: { message: string } };
+    if (!r.ok) throw new Error(d.error?.message ?? `Anthropic ${r.status}`);
+    const raw = d.content?.[0]?.text ?? '[]';
+    const match = raw.match(/\[[\s\S]*\]/);
+    res.json({ variants: match ? JSON.parse(match[0]) : [] });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+// ── Ads copy from audit data ──────────────────────────────────────────────
+app.post('/api/ads-from-audit', async (req: Request, res: Response) => {
+  const { query, brandSentiment, brandPhrases = [], competitors = [], platform, goal, lang = 'pl', country = 'PL' } = req.body;
+  const keyAnthropic = req.body.userKeys?.anthropic ?? process.env.ANTHROPIC_API_KEY ?? '';
+  if (!keyAnthropic) return res.status(401).json({ error: 'Missing Anthropic API key' });
+
+  const systemPrompt = `You are a performance marketing specialist for Cosibella.pl (K-Beauty CEE).
+You have real data from AI search engines:
+- Query: '${query}'
+- Brand sentiment: ${brandSentiment}
+- How AI describes the brand: ${brandPhrases.join(' | ') || 'K-Beauty specialist'}
+- Competitors: ${competitors.join(', ') || 'Hebe, Notino, Douglas'}
+- Market: ${country}
+Create 3 ad copy variants for ${platform}, goal: ${goal}.
+Return JSON: [{"headline":"...","primaryText":"...","cta":"...","whyItWorks":"..."}]`;
+
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': keyAnthropic, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2048, system: systemPrompt, messages: [{ role: 'user', content: 'Generate 3 ad copy variants as JSON array only.' }] }),
+    });
+    const d = await r.json() as { content?: { text: string }[]; error?: { message: string } };
+    if (!r.ok) throw new Error(d.error?.message ?? `Anthropic ${r.status}`);
+    const raw = d.content?.[0]?.text ?? '[]';
+    const match = raw.match(/\[[\s\S]*\]/);
+    res.json({ variants: match ? JSON.parse(match[0]) : [] });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+// ── Content calendar generator ────────────────────────────────────────────
+app.post('/api/content-calendar', async (req: Request, res: Response) => {
+  const { lang = 'pl' } = req.body;
+  const keyAnthropic = req.body.userKeys?.anthropic ?? process.env.ANTHROPIC_API_KEY ?? '';
+  if (!keyAnthropic) return res.status(401).json({ error: 'Missing Anthropic API key' });
+
+  const today = new Date().toISOString().slice(0, 10);
+  const systemPrompt = `You are a content calendar strategist for Cosibella.pl K-Beauty store in Poland/CEE. Today is ${today}.`;
+  const userMsg = `Generate a 12-week content calendar starting today. For each week return: {"week":number,"dates":"string","mainTopic":"string","contentType":"string","targetKeyword":"string","whyNow":"string","platform":["string"]}. contentType must be one of: Artykuł|Social|Email|Reklamy. Return JSON array of 12 objects only, no explanation.`;
+
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': keyAnthropic, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 3000, system: systemPrompt, messages: [{ role: 'user', content: userMsg }] }),
+    });
+    const d = await r.json() as { content?: { text: string }[]; error?: { message: string } };
+    if (!r.ok) throw new Error(d.error?.message ?? `Anthropic ${r.status}`);
+    const raw = d.content?.[0]?.text ?? '[]';
+    const match = raw.match(/\[[\s\S]*\]/);
+    res.json({ plan: match ? JSON.parse(match[0]) : [] });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
 // ── ClickUp task creator ──────────────────────────────────────────────────
 app.post('/api/clickup-task', async (req: Request, res: Response) => {
   const { listName, taskName, description, tags, priority } = req.body as {

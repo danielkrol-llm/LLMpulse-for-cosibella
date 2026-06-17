@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { copyAsMarkdownBrief, downloadAsTxt, formatBriefAsMarkdown } from '../lib/exportUtils';
 import ContentBriefModal from './ContentBriefModal';
+import TrendCalendar from './TrendCalendar';
 import { 
   FileText, 
   Map, 
@@ -32,7 +33,7 @@ interface GEOToolSuiteProps {
 }
 
 export default function GEOToolSuite({ lang, onAddLogMessage }: GEOToolSuiteProps) {
-  const [activeSuiteTab, setActiveSuiteTab] = useState<'CITATION' | 'LLMSTXT' | 'SCORER' | 'SCHEDULER'>('CITATION');
+  const [activeSuiteTab, setActiveSuiteTab] = useState<'CITATION' | 'LLMSTXT' | 'SCORER' | 'SCHEDULER' | 'TREND_CALENDAR'>('CITATION');
 
   // --- 1. Citation Tracker State ---
   const [citationMetrics, setCitationMetrics] = useState({
@@ -405,13 +406,25 @@ export default function GEOToolSuite({ lang, onAddLogMessage }: GEOToolSuiteProp
         <button
           onClick={() => setActiveSuiteTab('SCHEDULER')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold font-mono transition cursor-pointer ${
-            activeSuiteTab === 'SCHEDULER' 
-              ? 'bg-[#1e2533] text-cyan-400 border border-cyan-500/10' 
+            activeSuiteTab === 'SCHEDULER'
+              ? 'bg-[#1e2533] text-cyan-400 border border-cyan-500/10'
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
           <Clock size={14} />
           {lang === 'pl' ? '4. Auto-Monitoring CRON' : '4. Auto-Monitoring CRON'}
+        </button>
+
+        <button
+          onClick={() => setActiveSuiteTab('TREND_CALENDAR')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold font-mono transition cursor-pointer ${
+            activeSuiteTab === 'TREND_CALENDAR'
+              ? 'bg-[#1e2533] text-cyan-400 border border-cyan-500/10'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Clock size={14} />
+          {lang === 'pl' ? '5. Trend Calendar' : '5. Trend Calendar'}
         </button>
       </div>
 
@@ -1288,6 +1301,11 @@ export default function GEOToolSuite({ lang, onAddLogMessage }: GEOToolSuiteProp
       )}
 
     </div>
+
+    {/* TAB CONTENT: TREND CALENDAR */}
+    {activeSuiteTab === 'TREND_CALENDAR' && (
+      <TrendCalendar lang={lang} onAddLogMessage={onAddLogMessage} />
+    )}
 
     {/* ContentBriefModal — renders when user clicks "Otwórz brief ↗" in SCORER */}
     {showBriefModal && scorerResult && (
