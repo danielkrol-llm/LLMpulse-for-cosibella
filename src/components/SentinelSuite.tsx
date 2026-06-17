@@ -25,73 +25,150 @@ import {
 } from 'lucide-react';
 
 // Sample raw data matching Cosibella URLs & products crawlability audit
+// geoPlan is intentionally absent — derived dynamically by generateGeoPlan()
 const INITIAL_CONTENT_AUDIT = [
-  { 
-    url: '/pl/menu/k-beauty-koreanskie-kosmetyki-172.html', 
+  {
+    url: '/pl/menu/k-beauty-koreanskie-kosmetyki-172.html',
     title: 'Koreańskie Kosmetyki K-Beauty',
-    gptBot: 'Allowed', 
-    claudeBot: 'Allowed', 
-    googleExtended: 'Allowed', 
+    gptBot: 'Allowed',
+    claudeBot: 'Allowed',
+    googleExtended: 'Allowed',
     crawlability: 'Excellent',
     aiReadiness: 94,
     citationStatus: 'Cited (Top 1)',
     reason: 'Sól fizjologiczna, bogate schematy Schema Product & FAQ.',
-    geoPlan: 'Dodaj drugorzędne synonimy dla słów "szklana cera" oraz "skincare koreański wegański" bezpośrednio w opisie kategorii.',
     thinContent: 'No'
   },
-  { 
-    url: '/pl/products/beauty-of-joseon-relief-sun-probiotic', 
+  {
+    url: '/pl/products/beauty-of-joseon-relief-sun-probiotic',
     title: 'Beauty of Joseon - Relief Sun SPF 50+',
-    gptBot: 'Allowed', 
-    claudeBot: 'Allowed', 
-    googleExtended: 'Allowed', 
+    gptBot: 'Allowed',
+    claudeBot: 'Allowed',
+    googleExtended: 'Allowed',
     crawlability: 'Excellent',
     aiReadiness: 88,
     citationStatus: 'Cited (Top 2)',
     reason: 'Wzmianki o certyfikacji SPF, kosmetolodzy Cosibella wymienieni jako zweryfikowani recenzenci.',
-    geoPlan: 'Osadź blok pytań i odpowiedzi (Q&A) z mikroformatem FAQPage wyjaśniającym bielenie SPF dla ciemniejszych fototypów skóry.',
     thinContent: 'No'
   },
-  { 
-    url: '/pl/products/the-ordinary-niacinamide-10-zinc-1', 
+  {
+    url: '/pl/products/the-ordinary-niacinamide-10-zinc-1',
     title: 'The Ordinary - Niacinamide 10% + Zinc 1%',
-    gptBot: 'Allowed', 
-    claudeBot: 'Allowed', 
-    googleExtended: 'Blocked', 
+    gptBot: 'Allowed',
+    claudeBot: 'Allowed',
+    googleExtended: 'Blocked',
     crawlability: 'Limited',
     aiReadiness: 62,
     citationStatus: 'Uncited (Competitor Overlap)',
     reason: 'Brak struktury JSON-LD dla ocen klientów. Wolne renderowanie kluczowych tabel składników aktywnych.',
-    geoPlan: 'Odblokuj google-extended w robots.txt. Przenieś specyfikację pH 5.5-6.5 do statycznego HTML zamiast ładowania przez JS API.',
     thinContent: 'No'
   },
-  { 
-    url: '/pl/products/anua-heartleaf-77-soothing-toner', 
+  {
+    url: '/pl/products/anua-heartleaf-77-soothing-toner',
     title: 'Anua - Heartleaf 77% Soothing Toner',
-    gptBot: 'Blocked', 
-    claudeBot: 'Allowed', 
-    googleExtended: 'Allowed', 
+    gptBot: 'Blocked',
+    claudeBot: 'Allowed',
+    googleExtended: 'Allowed',
     crawlability: 'Limited',
     aiReadiness: 45,
     citationStatus: 'Uncited (Gap)',
     reason: 'Thin content (krótki opis, brak opinii ekspertów). Robots.txt blokuje OpenAI GPTBot za pomocą błędnej dyrektywy User-agent.',
-    geoPlan: 'Rozbuduj opis o sekcję "Jak toner Anua łagodzi stany zapalne - skład chemiczny" i zezwól na crawl przez GPTBot.',
     thinContent: 'Yes (Critical)'
   },
-  { 
-    url: '/pl/products/cosrx-advanced-snail-96-mucin-power', 
+  {
+    url: '/pl/products/cosrx-advanced-snail-96-mucin-power',
     title: 'COSRX - Advanced Snail Mucin Power Essence',
-    gptBot: 'Allowed', 
-    claudeBot: 'Allowed', 
-    googleExtended: 'Allowed', 
+    gptBot: 'Allowed',
+    claudeBot: 'Allowed',
+    googleExtended: 'Allowed',
     crawlability: 'Excellent',
     aiReadiness: 90,
     citationStatus: 'Cited (Top 3)',
     reason: 'Wyraźne zestawienie opinii o organicznej mucynie, wysoki autorytet referencyjny na zewnętrznych forach beauty.',
-    geoPlan: 'Zoptymalizuj mikrodata pod kątem pytania "czy esencja ze ślimaka Cosrx zatyka pory" — dodaj bezpośrednią odpowiedź w nagłówku H3.',
     thinContent: 'No'
   }
 ];
+
+type AuditRow = typeof INITIAL_CONTENT_AUDIT[0];
+
+// Derives actionable GEO plan from live audit fields — no hardcoded strings.
+// Re-evaluates automatically whenever bot access, aiReadiness, citationStatus, or thinContent changes.
+function generateGeoPlan(row: AuditRow, lang: 'pl' | 'en'): { steps: string[]; priority: 'critical' | 'high' | 'ok' } {
+  const steps: string[] = [];
+  const r = row.reason.toLowerCase();
+
+  // 1. Bot access blockers — highest impact
+  if (row.gptBot === 'Blocked') {
+    steps.push(lang === 'pl'
+      ? 'robots.txt: dodaj User-agent: GPTBot + Allow: / (OpenAI blokuje cytowania bez tego)'
+      : 'robots.txt: add User-agent: GPTBot + Allow: / (OpenAI ignores blocked domains)');
+  }
+  if (row.googleExtended === 'Blocked') {
+    steps.push(lang === 'pl'
+      ? 'robots.txt: odblokuj Google-Extended — wymagane dla indeksowania przez Gemini AI Overviews'
+      : 'robots.txt: unblock Google-Extended — required for Gemini AI Overviews indexing');
+  }
+  if (row.claudeBot === 'Blocked') {
+    steps.push(lang === 'pl'
+      ? 'robots.txt: odblokuj ClaudeBot (Anthropic) — blokuje cytowania w Claude AI i Perplexity'
+      : 'robots.txt: unblock ClaudeBot (Anthropic) — blocks Claude AI and Perplexity citations');
+  }
+
+  // 2. JS rendering issue
+  if (r.includes('js api') || r.includes('javascript') || r.includes('renderow') || r.includes('wolne renderowanie')) {
+    steps.push(lang === 'pl'
+      ? 'Przenieś kluczowe dane produktu (składniki, pH, opis) do statycznego HTML — boty AI nie wykonują JS'
+      : 'Move key product data (ingredients, pH, description) to static HTML — AI crawlers do not execute JS');
+  }
+
+  // 3. Schema / JSON-LD missing
+  if (r.includes('json-ld') || r.includes('schema') || r.includes('mikroformat') || r.includes('mikrodata')) {
+    steps.push(lang === 'pl'
+      ? 'Dodaj Schema.org Product JSON-LD z polami: name, description, offers, aggregateRating, ingredient'
+      : 'Add Schema.org Product JSON-LD with fields: name, description, offers, aggregateRating, ingredient');
+  }
+
+  // 4. Thin content
+  if (row.thinContent === 'Yes (Critical)') {
+    steps.push(lang === 'pl'
+      ? 'Rozbuduj opis produktu: min. 400 słów, sekcja ekspercka kosmetologa, FAQ Schema z 3+ pytaniami'
+      : 'Expand product description: min. 400 words, cosmetologist expert section, FAQ Schema with 3+ Q&A');
+  }
+
+  // 5. AI Readiness score thresholds
+  if (row.aiReadiness < 50) {
+    steps.push(lang === 'pl'
+      ? `AI Readiness ${row.aiReadiness}% (krytyczne) — priorytet: uzupełnij brakujące tagi OG, meta description i hreflang`
+      : `AI Readiness ${row.aiReadiness}% (critical) — priority: add missing OG tags, meta description and hreflang`);
+  } else if (row.aiReadiness < 75) {
+    steps.push(lang === 'pl'
+      ? `AI Readiness ${row.aiReadiness}% — wzbogać opis o synonimy semantyczne i terminologię ekspercką branży beauty`
+      : `AI Readiness ${row.aiReadiness}% — enrich description with semantic synonyms and expert beauty industry terminology`);
+  }
+
+  // 6. No citations
+  if (row.citationStatus.startsWith('Uncited')) {
+    const gap = row.citationStatus.includes('Competitor') ? (lang === 'pl' ? 'konkurenci zajmują Twoje miejsca' : 'competitors occupy your slots') : (lang === 'pl' ? 'strona poza zasięgiem AI' : 'page is outside AI visibility range');
+    steps.push(lang === 'pl'
+      ? `Brak cytowań (${gap}) — utwórz artykuł Q&A dopasowany do zapytań konwersacyjnych, osadź FAQPage JSON-LD`
+      : `No citations (${gap}) — create Q&A article matching conversational queries, embed FAQPage JSON-LD`);
+  }
+
+  // 7. Good state — still suggest growth action
+  if (steps.length === 0) {
+    steps.push(lang === 'pl'
+      ? `AI Readiness ${row.aiReadiness}% — status optymalny. Rozszerz pokrycie o synonimy długoogonowe i sekcję porównawczą z konkurencją`
+      : `AI Readiness ${row.aiReadiness}% — optimal status. Expand coverage with long-tail synonyms and competitor comparison section`);
+  }
+
+  const priority = (row.gptBot === 'Blocked' || row.googleExtended === 'Blocked' || row.aiReadiness < 50 || row.thinContent === 'Yes (Critical)')
+    ? 'critical'
+    : row.aiReadiness < 75 || row.citationStatus.startsWith('Uncited')
+    ? 'high'
+    : 'ok';
+
+  return { steps, priority };
+}
 
 // Historical trending data for 12 months SOV simulation
 const HISTORICAL_SOV_DATA = [
@@ -432,26 +509,62 @@ export default function SentinelSuite({ lang, onAddLogMessage }: { lang: 'pl' | 
                 </table>
               </div>
 
-              {/* GEO Plan and recommendation box for selected item */}
+              {/* GEO Plan — dynamically generated from live audit fields */}
               <div className="p-4 bg-[#111421] border border-violet-950/30 rounded-xl space-y-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="text-violet-400 w-4 h-4 animate-bounce" />
-                  <span className="text-[11px] text-white uppercase tracking-wider font-extrabold">Krytyczne Rekomendacje GEO (Otterly.ai recommendation flow)</span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="text-violet-400 w-4 h-4 animate-bounce" />
+                    <span className="text-[11px] text-white uppercase tracking-wider font-extrabold">
+                      {lang === 'pl' ? 'Plan GEO Zmian — Generowany Dynamicznie' : 'GEO Action Plan — Auto-Generated'}
+                    </span>
+                  </div>
+                  <span className="text-[9px] font-mono font-bold text-violet-400 bg-violet-950/40 border border-violet-900/30 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    {lang === 'pl' ? 'Na żywo' : 'Live'}
+                  </span>
                 </div>
-                <div className="text-[11px] space-y-3 divide-y divide-slate-800">
-                  {filteredAuditList.map((row, idx) => (
-                    <div key={idx} className="pt-2">
-                      <div className="flex justify-between font-bold text-white">
-                        <span>{row.title}</span>
-                        <span className="text-yellow-400">Readiness: {row.aiReadiness}%</span>
+                <p className="text-[10px] text-slate-500 font-mono">
+                  {lang === 'pl'
+                    ? 'Akcje wyprowadzane automatycznie z aktualnych pól audytu (dostęp botów, AI Readiness, cytowania, thin content). Aktualizują się po każdym reskanowaniu.'
+                    : 'Actions derived automatically from live audit fields (bot access, AI Readiness, citations, thin content). Update after every rescan.'}
+                </p>
+                <div className="text-[11px] space-y-3 divide-y divide-slate-800/80">
+                  {filteredAuditList.map((row, idx) => {
+                    const { steps, priority } = generateGeoPlan(row, lang);
+                    const priorityStyle =
+                      priority === 'critical' ? 'text-rose-400 bg-rose-950/30 border-rose-900/40' :
+                      priority === 'high'     ? 'text-amber-400 bg-amber-950/30 border-amber-900/40' :
+                                               'text-emerald-400 bg-emerald-950/30 border-emerald-900/40';
+                    const priorityLabel =
+                      priority === 'critical' ? (lang === 'pl' ? 'KRYTYCZNY' : 'CRITICAL') :
+                      priority === 'high'     ? (lang === 'pl' ? 'WYSOKI' : 'HIGH') :
+                                               (lang === 'pl' ? 'OK' : 'OK');
+                    return (
+                      <div key={idx} className="pt-3">
+                        <div className="flex items-center justify-between font-bold text-white mb-1.5">
+                          <span className="leading-snug">{row.title}</span>
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            <span className={`text-[9px] font-mono font-extrabold px-1.5 py-0.5 rounded border ${priorityStyle}`}>
+                              {priorityLabel}
+                            </span>
+                            <span className="text-slate-400 font-mono text-[10px]">{row.aiReadiness}%</span>
+                          </div>
+                        </div>
+                        <p className="text-slate-500 leading-normal mb-1.5">
+                          <span className="text-slate-400 font-semibold">{lang === 'pl' ? 'Diagnoza:' : 'Diagnosis:'}</span>{' '}{row.reason}
+                        </p>
+                        <ol className="space-y-1">
+                          {steps.map((step, si) => (
+                            <li key={si} className="flex items-start gap-2 text-slate-300 leading-snug">
+                              <span className="shrink-0 w-4 h-4 rounded-full bg-violet-950/60 border border-violet-800/50 text-violet-400 font-mono font-bold text-[9px] flex items-center justify-center mt-0.5">
+                                {si + 1}
+                              </span>
+                              <span>{step}</span>
+                            </li>
+                          ))}
+                        </ol>
                       </div>
-                      <div className="text-slate-400 leading-normal mt-1">
-                        <strong>Powód statusu:</strong> {row.reason}
-                        <br />
-                        <strong className="text-cyan-400">Plan GEO Zmian offline:</strong> {row.geoPlan}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
