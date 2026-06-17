@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { copyAsMarkdownBrief, downloadAsTxt, formatBriefAsMarkdown } from '../lib/exportUtils';
 import { 
   FileText, 
   Map, 
@@ -87,6 +88,13 @@ export default function GEOToolSuite({ lang, onAddLogMessage }: GEOToolSuiteProp
     optimizedPassage: string;
   } | null>(null);
   const [isScoring, setIsScoring] = useState(false);
+  const [docsToast, setDocsToast] = useState(false);
+
+  const showDocsToast = useCallback(() => {
+    window.open('https://docs.new', '_blank', 'noopener,noreferrer');
+    setDocsToast(true);
+    setTimeout(() => setDocsToast(false), 4000);
+  }, []);
 
   // --- 4. Auto-Monitoring Scheduler State ---
   const [monitoringEnabled, setMonitoringEnabled] = useState(true);
@@ -1015,19 +1023,66 @@ export default function GEOToolSuite({ lang, onAddLogMessage }: GEOToolSuiteProp
                       <Sparkles size={12} className="text-amber-400" />
                       {lang === 'pl' ? 'Wersja Zoptymalizowana 100/100 (Passage Attribution)' : 'Wersja Zoptymalizowana 100/100 (Passage Attribution)'}
                     </span>
-                    
-                    <button
-                      onClick={() => handleCopyText(scorerResult.optimizedPassage, 'full')}
-                      className="text-[11px] text-cyan-400 hover:text-cyan-300 font-bold font-mono flex items-center gap-1 cursor-pointer bg-transparent border-0 outline-none"
-                    >
-                      <Copy size={12} className="inline" />
-                      {lang === 'pl' ? 'Kopiuj i Użyj' : 'Copy and use'}
-                    </button>
+                  </div>
+
+                  {/* Info banner */}
+                  <div className="flex items-start gap-2 bg-indigo-950/20 border border-indigo-900/30 text-xs text-indigo-300 p-2 rounded-lg leading-snug">
+                    💡 {lang === 'pl'
+                      ? 'Ten fragment jest zoptymalizowany pod cytowanie przez AI. Umieść go w pierwszych 150 słowach artykułu.'
+                      : 'This passage is optimized for AI citation. Place it in the first 150 words of your article.'}
                   </div>
 
                   <p className="p-3.5 rounded-lg bg-[#0e121a] border border-cyan-900/20 text-xs font-mono text-amber-100 leading-relaxed">
                     {scorerResult.optimizedPassage}
                   </p>
+
+                  {/* Export button group */}
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <button
+                      onClick={() => copyAsMarkdownBrief({
+                        geoScore: scorerResult.totalGeoScore,
+                        query: queryContext,
+                        optimizedPassage: scorerResult.optimizedPassage,
+                        strengths: scorerResult.geoStrengths,
+                        weaknesses: scorerResult.geoWeaknesses,
+                        rating: scorerResult.technicalRating,
+                      })}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold bg-[#151921] hover:bg-slate-800 border border-slate-700 rounded-lg text-slate-300 transition cursor-pointer"
+                    >
+                      <Copy size={11} />
+                      {lang === 'pl' ? 'Kopiuj jako brief' : 'Copy as brief'}
+                    </button>
+
+                    <button
+                      onClick={() => downloadAsTxt('geo-brief-cosibella.txt', formatBriefAsMarkdown({
+                        geoScore: scorerResult.totalGeoScore,
+                        query: queryContext,
+                        optimizedPassage: scorerResult.optimizedPassage,
+                        strengths: scorerResult.geoStrengths,
+                        weaknesses: scorerResult.geoWeaknesses,
+                        rating: scorerResult.technicalRating,
+                      }))}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold bg-[#151921] hover:bg-slate-800 border border-slate-700 rounded-lg text-slate-300 transition cursor-pointer"
+                    >
+                      ⬇ {lang === 'pl' ? 'Pobierz .txt' : 'Download .txt'}
+                    </button>
+
+                    <button
+                      onClick={showDocsToast}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold bg-[#151921] hover:bg-slate-800 border border-slate-700 rounded-lg text-slate-300 transition cursor-pointer"
+                    >
+                      <ExternalLink size={11} />
+                      Google Docs ↗
+                    </button>
+                  </div>
+
+                  {docsToast && (
+                    <div className="text-[11px] text-emerald-400 bg-emerald-950/30 border border-emerald-900/40 rounded-lg px-3 py-2 font-mono">
+                      {lang === 'pl'
+                        ? 'Otwarto pusty Docs — wklej brief przez Ctrl+V'
+                        : 'Blank Docs opened — paste brief with Ctrl+V'}
+                    </div>
+                  )}
                 </div>
 
               </div>
