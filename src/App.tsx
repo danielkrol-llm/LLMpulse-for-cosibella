@@ -609,7 +609,7 @@ function AppContent() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
           
           {/* Left Vertical Sidebar Menu */}
-          <aside className="lg:col-span-1 bg-[#0F1115] border border-slate-800 rounded-2xl p-4 space-y-5 lg:sticky lg:top-[4.75rem] shadow-sm">
+          <aside className="lg:col-span-1 bg-[#0F1115] border border-slate-800 rounded-2xl p-4 space-y-5 lg:sticky lg:top-[4.75rem] lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto shadow-sm custom-scrollbar">
             
             {/* Sidebar header / small branding */}
             <div className="pb-3 border-b border-slate-800">
