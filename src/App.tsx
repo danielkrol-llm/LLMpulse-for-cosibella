@@ -335,10 +335,6 @@ function AppContent() {
     );
   }
 
-  if (!currentUser) {
-    return <LoginPage />;
-  }
-
   return (
     <div className="min-h-screen bg-[#0B0C10] text-slate-300 font-sans flex flex-col justify-between">
       {/* 1. Global Navigation Navbar Header */}
