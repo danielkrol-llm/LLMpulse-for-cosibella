@@ -16,6 +16,7 @@ import GEOToolSuite from './components/GEOToolSuite';
 import SettingsTab from './components/SettingsTab';
 import GSCAnalyticsHub from './components/GSCAnalyticsHub';
 import SentinelSuite from './components/SentinelSuite';
+import OnboardingTour, { OnboardingReplayButton } from './components/OnboardingTour';
 import { translations } from './translations';
 import { db, auth, googleProvider } from './lib/firebase';
 import { User } from 'firebase/auth';
@@ -68,6 +69,7 @@ export default function App() {
 function AppContent() {
   const [lang, setLang] = useState<'pl' | 'en'>('pl');
   const t = translations[lang];
+  const [showTour, setShowTour] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'SANDBOX' | 'OPTIMIZATIONS' | 'GAPS' | 'LOG_ANALYZER' | 'QUERY_FANOUT' | 'GEOTOOLSUITE' | 'GA4_GSC' | 'SENTINEL' | 'SETTINGS'>('DASHBOARD');
 
@@ -798,8 +800,13 @@ function AppContent() {
               </button>
             </div>
 
+            {/* Quick-start guide replay */}
+            <div className="pt-3 border-t border-slate-800/60">
+              <OnboardingReplayButton lang={lang} onClick={() => setShowTour(true)} />
+            </div>
+
             {/* Sidebar bottom telemetry info */}
-            <div className="pt-4 border-t border-slate-850 space-y-2">
+            <div className="pt-3 border-t border-slate-850 space-y-2">
               <div className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                 <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest leading-none font-bold">
@@ -1811,6 +1818,13 @@ function AppContent() {
           </div>
         </div>
       </footer>
+
+      {/* Onboarding tour — auto-shows on first visit, can be replayed from sidebar */}
+      <OnboardingTour
+        lang={lang}
+        forceShow={showTour}
+        onClose={() => setShowTour(false)}
+      />
 
     </div>
   );
