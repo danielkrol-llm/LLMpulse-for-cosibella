@@ -588,6 +588,7 @@ function AppContent() {
             <button
               onClick={() => {
                 setActiveTab('SANDBOX');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
                 addConsoleLog(lang === 'pl' ? 'Przekierowano do symulatora SERP AI' : 'Navigated to AI SERP Emulator sandbox console');
               }}
               className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:opacity-95 text-white py-2 px-3.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition font-mono shadow-md shadow-cyan-950/30 cursor-pointer"
@@ -606,7 +607,7 @@ function AppContent() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
           
           {/* Left Vertical Sidebar Menu */}
-          <aside className="lg:col-span-1 bg-[#0F1115] border border-slate-800 rounded-2xl p-4 space-y-5 lg:sticky lg:top-8 shadow-sm">
+          <aside className="lg:col-span-1 bg-[#0F1115] border border-slate-800 rounded-2xl p-4 space-y-5 lg:sticky lg:top-[4.75rem] shadow-sm">
             
             {/* Sidebar header / small branding */}
             <div className="pb-3 border-b border-slate-800">
@@ -623,6 +624,7 @@ function AppContent() {
               <button
                 onClick={() => {
                   setActiveTab('DASHBOARD');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                   addConsoleLog(lang === 'pl' ? 'Wczytano statystyki główne' : 'Loaded system statistics overview');
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center gap-3 cursor-pointer text-left ${
@@ -638,6 +640,7 @@ function AppContent() {
               <button
                 onClick={() => {
                   setActiveTab('SANDBOX');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                   addConsoleLog(lang === 'pl' ? 'Wczytano konsolę symulatora AI' : 'Loaded sandbox emulator console');
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center gap-3 cursor-pointer text-left ${
@@ -653,6 +656,7 @@ function AppContent() {
               <button
                 onClick={() => {
                   setActiveTab('OPTIMIZATIONS');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                   addConsoleLog(lang === 'pl' ? 'Wczytano szablony SEO AI' : 'Loaded AI SEO template engines');
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center gap-3 cursor-pointer text-left ${
@@ -668,6 +672,7 @@ function AppContent() {
               <button
                 onClick={() => {
                   setActiveTab('GAPS');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                   addConsoleLog(lang === 'pl' ? 'Wczytano tabele luk widoczności' : 'Loaded Competitor Authority Gap matrices');
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center gap-3 cursor-pointer text-left ${
@@ -683,6 +688,7 @@ function AppContent() {
               <button
                 onClick={() => {
                   setActiveTab('LOG_ANALYZER');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                   addConsoleLog(lang === 'pl' ? 'Wczytano analizator logów botów AI' : 'Loaded AI crawling logs console');
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center gap-3 cursor-pointer text-left ${
@@ -698,6 +704,7 @@ function AppContent() {
               <button
                 onClick={() => {
                   setActiveTab('QUERY_FANOUT');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                   addConsoleLog(lang === 'pl' ? 'Otwarcono generator Query Fanout' : 'Opened Query Fanout workspace');
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center gap-3 cursor-pointer text-left ${
@@ -713,6 +720,7 @@ function AppContent() {
               <button
                 onClick={() => {
                   setActiveTab('GEOTOOLSUITE');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                   addConsoleLog(lang === 'pl' ? 'Otwarcono zaawansowany pakiet GEO i Citation Tracker' : 'Activated advanced GEO Suite & Citation Tracker');
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center justify-between cursor-pointer text-left ${
@@ -733,6 +741,7 @@ function AppContent() {
               <button
                 onClick={() => {
                   setActiveTab('GA4_GSC');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                   addConsoleLog(lang === 'pl' ? 'Otwarto panel integracji Google Search Console & GA4' : 'Opened Google Search Console & GA4 Integration dashboard');
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center justify-between cursor-pointer text-left ${
@@ -753,6 +762,7 @@ function AppContent() {
               <button
                 onClick={() => {
                   setActiveTab('SENTINEL');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                   addConsoleLog(lang === 'pl' ? 'Otwarto pakiet Sentinel & Advanced Content Audit' : 'Activated Sentinel & Advanced Content Audit suite');
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center justify-between cursor-pointer text-left ${
@@ -774,6 +784,7 @@ function AppContent() {
               <button
                 onClick={() => {
                   setActiveTab('SETTINGS');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                   addConsoleLog(lang === 'pl' ? 'Otwarto panel ustawień głównych i kluczy API' : 'Opened central client-key credential settings workspace');
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center gap-3 cursor-pointer text-left ${
@@ -1589,6 +1600,7 @@ function AppContent() {
               onAddLogMessage={addConsoleLog}
               onAuditQueryInSandbox={(queryText) => {
                 setActiveTab('SANDBOX');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
                 localStorage.setItem('sandbox_direct_query', queryText);
                 window.dispatchEvent(new CustomEvent('audit_gsc_query', { detail: queryText }));
               }}
