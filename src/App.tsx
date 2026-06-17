@@ -17,6 +17,7 @@ import SettingsTab from './components/SettingsTab';
 import GSCAnalyticsHub from './components/GSCAnalyticsHub';
 import SentinelSuite from './components/SentinelSuite';
 import OnboardingTour, { OnboardingReplayButton } from './components/OnboardingTour';
+import ContentGenerator from './components/ContentGenerator';
 import { translations } from './translations';
 import { db, auth, googleProvider } from './lib/firebase';
 import { User } from 'firebase/auth';
@@ -71,7 +72,7 @@ function AppContent() {
   const t = translations[lang];
   const [showTour, setShowTour] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'SANDBOX' | 'OPTIMIZATIONS' | 'GAPS' | 'LOG_ANALYZER' | 'QUERY_FANOUT' | 'GEOTOOLSUITE' | 'GA4_GSC' | 'SENTINEL' | 'SETTINGS'>('DASHBOARD');
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'SANDBOX' | 'OPTIMIZATIONS' | 'GAPS' | 'LOG_ANALYZER' | 'QUERY_FANOUT' | 'CONTENT_GENERATOR' | 'GEOTOOLSUITE' | 'GA4_GSC' | 'SENTINEL' | 'SETTINGS'>('DASHBOARD');
 
   // Core aggregated state
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -717,6 +718,22 @@ function AppContent() {
               >
                 <BrainCircuit className={`w-4 h-4 ${activeTab === 'QUERY_FANOUT' ? 'text-cyan-400' : 'text-slate-500'}`} />
                 <span>{t.tabs.queryFanout}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab('CONTENT_GENERATOR');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  addConsoleLog(lang === 'pl' ? 'Otwarto Generator Treści AI' : 'Opened AI Content Generator');
+                }}
+                className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center gap-3 cursor-pointer text-left ${
+                  activeTab === 'CONTENT_GENERATOR'
+                    ? 'bg-gradient-to-r from-cyan-950/30 to-[#151921] text-cyan-400 border border-cyan-500/20 border-l-2 border-l-cyan-400 shadow-sm shadow-cyan-950/20 font-extrabold'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#151921]/45 border border-transparent'
+                }`}
+              >
+                <Sparkles className={`w-4 h-4 ${activeTab === 'CONTENT_GENERATOR' ? 'text-cyan-400' : 'text-slate-500'}`} />
+                <span>{lang === 'pl' ? 'Napisz z AI' : 'Write with AI'}</span>
               </button>
 
               <button
@@ -1590,6 +1607,11 @@ function AppContent() {
               lang={lang}
             />
           </div>
+        )}
+
+        {/* VIEW F2: CONTENT_GENERATOR AI writing tool */}
+        {activeTab === 'CONTENT_GENERATOR' && (
+          <ContentGenerator lang={lang} onAddLogMessage={addConsoleLog} />
         )}
 
         {/* VIEW G: GEOTOOLSUITE Advanced GEO optimization tools */}
