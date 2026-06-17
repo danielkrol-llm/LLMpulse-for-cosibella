@@ -629,7 +629,7 @@ function AppContent() {
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center gap-3 cursor-pointer text-left ${
                   activeTab === 'DASHBOARD'
-                    ? 'bg-[#151921] text-cyan-400 border border-cyan-500/10 shadow-sm shadow-cyan-950/20 font-extrabold'
+                    ? 'bg-gradient-to-r from-cyan-950/30 to-[#151921] text-cyan-400 border border-cyan-500/20 border-l-2 border-l-cyan-400 shadow-sm shadow-cyan-950/20 font-extrabold'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-[#151921]/45 border border-transparent'
                 }`}
               >
@@ -645,7 +645,7 @@ function AppContent() {
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center gap-3 cursor-pointer text-left ${
                   activeTab === 'SANDBOX'
-                    ? 'bg-[#151921] text-cyan-400 border border-cyan-500/10 shadow-sm shadow-cyan-950/20 font-extrabold'
+                    ? 'bg-gradient-to-r from-cyan-950/30 to-[#151921] text-cyan-400 border border-cyan-500/20 border-l-2 border-l-cyan-400 shadow-sm shadow-cyan-950/20 font-extrabold'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-[#151921]/45 border border-transparent'
                 }`}
               >
@@ -661,7 +661,7 @@ function AppContent() {
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center gap-3 cursor-pointer text-left ${
                   activeTab === 'OPTIMIZATIONS'
-                    ? 'bg-[#151921] text-cyan-400 border border-cyan-500/10 shadow-sm shadow-cyan-950/20 font-extrabold'
+                    ? 'bg-gradient-to-r from-cyan-950/30 to-[#151921] text-cyan-400 border border-cyan-500/20 border-l-2 border-l-cyan-400 shadow-sm shadow-cyan-950/20 font-extrabold'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-[#151921]/45 border border-transparent'
                 }`}
               >
@@ -677,7 +677,7 @@ function AppContent() {
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center gap-3 cursor-pointer text-left ${
                   activeTab === 'GAPS'
-                    ? 'bg-[#151921] text-cyan-400 border border-cyan-500/10 shadow-sm shadow-cyan-950/20 font-extrabold'
+                    ? 'bg-gradient-to-r from-cyan-950/30 to-[#151921] text-cyan-400 border border-cyan-500/20 border-l-2 border-l-cyan-400 shadow-sm shadow-cyan-950/20 font-extrabold'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-[#151921]/45 border border-transparent'
                 }`}
               >
@@ -693,7 +693,7 @@ function AppContent() {
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center gap-3 cursor-pointer text-left ${
                   activeTab === 'LOG_ANALYZER'
-                    ? 'bg-[#151921] text-cyan-400 border border-cyan-500/10 shadow-sm shadow-cyan-950/20 font-extrabold'
+                    ? 'bg-gradient-to-r from-cyan-950/30 to-[#151921] text-cyan-400 border border-cyan-500/20 border-l-2 border-l-cyan-400 shadow-sm shadow-cyan-950/20 font-extrabold'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-[#151921]/45 border border-transparent'
                 }`}
               >
@@ -709,7 +709,7 @@ function AppContent() {
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center gap-3 cursor-pointer text-left ${
                   activeTab === 'QUERY_FANOUT'
-                    ? 'bg-[#151921] text-cyan-400 border border-cyan-500/10 shadow-sm shadow-cyan-950/20 font-extrabold'
+                    ? 'bg-gradient-to-r from-cyan-950/30 to-[#151921] text-cyan-400 border border-cyan-500/20 border-l-2 border-l-cyan-400 shadow-sm shadow-cyan-950/20 font-extrabold'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-[#151921]/45 border border-transparent'
                 }`}
               >
@@ -725,7 +725,7 @@ function AppContent() {
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center justify-between cursor-pointer text-left ${
                   activeTab === 'GEOTOOLSUITE'
-                    ? 'bg-[#151921] text-cyan-400 border border-cyan-500/10 shadow-sm shadow-cyan-950/20 font-extrabold'
+                    ? 'bg-gradient-to-r from-cyan-950/30 to-[#151921] text-cyan-400 border border-cyan-500/20 border-l-2 border-l-cyan-400 shadow-sm shadow-cyan-950/20 font-extrabold'
                     : 'text-slate-400 hover:text-indigo-200 hover:bg-[#151921]/30 border border-transparent'
                 }`}
               >
@@ -746,7 +746,7 @@ function AppContent() {
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center justify-between cursor-pointer text-left ${
                   activeTab === 'GA4_GSC'
-                    ? 'bg-[#151921] text-cyan-400 border border-cyan-500/10 shadow-sm shadow-cyan-950/20 font-extrabold'
+                    ? 'bg-gradient-to-r from-cyan-950/30 to-[#151921] text-cyan-400 border border-cyan-500/20 border-l-2 border-l-cyan-400 shadow-sm shadow-cyan-950/20 font-extrabold'
                     : 'text-slate-400 hover:text-indigo-200 hover:bg-[#151921]/30 border border-transparent'
                 }`}
               >
@@ -767,7 +767,7 @@ function AppContent() {
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center justify-between cursor-pointer text-left ${
                   activeTab === 'SENTINEL'
-                    ? 'bg-[#151921] text-cyan-400 border border-cyan-500/10 shadow-sm shadow-cyan-950/20 font-extrabold'
+                    ? 'bg-gradient-to-r from-cyan-950/30 to-[#151921] text-cyan-400 border border-cyan-500/20 border-l-2 border-l-cyan-400 shadow-sm shadow-cyan-950/20 font-extrabold'
                     : 'text-slate-400 hover:text-indigo-200 hover:bg-[#151921]/30 border border-transparent'
                 }`}
               >
@@ -789,7 +789,7 @@ function AppContent() {
                 }}
                 className={`w-full py-2.5 px-3.5 text-xs font-bold transition-all rounded-xl relative flex items-center gap-3 cursor-pointer text-left ${
                   activeTab === 'SETTINGS'
-                    ? 'bg-[#151921] text-cyan-400 border border-cyan-500/10 shadow-sm shadow-cyan-950/20 font-extrabold'
+                    ? 'bg-gradient-to-r from-cyan-950/30 to-[#151921] text-cyan-400 border border-cyan-500/20 border-l-2 border-l-cyan-400 shadow-sm shadow-cyan-950/20 font-extrabold'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-[#151921]/45 border border-transparent'
                 }`}
               >

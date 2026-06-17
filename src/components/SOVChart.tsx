@@ -77,7 +77,7 @@ export default function SOVChart({
   const glvsFillPoints = `${paddingX},${height - paddingY} ${glvsPoints} ${width - paddingX},${height - paddingY}`;
 
   return (
-    <div id="sov-and-trends-analytics-bento" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div id="sov-and-trends-analytics-bento" className="grid grid-cols-1 2xl:grid-cols-2 gap-6">
       {/* 1. Share of Voice Chart (AI-SOV Leaderboard) */}
       <div className="bg-[#151921] rounded-2xl border border-slate-800 p-6 shadow-sm flex flex-col justify-between">
         <div className="space-y-4">
@@ -203,7 +203,7 @@ export default function SOVChart({
           <div className="relative w-full overflow-x-auto select-none pt-2 h-[180px]">
             <svg
               viewBox={`0 0 ${width} ${height}`}
-              className="w-full h-full min-w-[420px]"
+              className="w-full h-full"
               aria-label="Weekly brand visibility trend chart"
             >
               {/* Grid guide horizontal lines */}
