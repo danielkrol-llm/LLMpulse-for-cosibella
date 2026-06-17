@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { copyAsMarkdownBrief, downloadAsTxt, formatBriefAsMarkdown } from '../lib/exportUtils';
+import ContentBriefModal from './ContentBriefModal';
 import { 
   FileText, 
   Map, 
@@ -88,6 +89,7 @@ export default function GEOToolSuite({ lang, onAddLogMessage }: GEOToolSuiteProp
     optimizedPassage: string;
   } | null>(null);
   const [isScoring, setIsScoring] = useState(false);
+  const [showBriefModal, setShowBriefModal] = useState(false);
   const [docsToast, setDocsToast] = useState(false);
 
   const showDocsToast = useCallback(() => {
@@ -1039,6 +1041,14 @@ export default function GEOToolSuite({ lang, onAddLogMessage }: GEOToolSuiteProp
                   {/* Export button group */}
                   <div className="flex flex-wrap gap-2 pt-1">
                     <button
+                      onClick={() => setShowBriefModal(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold bg-cyan-950/40 hover:bg-cyan-900/50 border border-cyan-800/50 rounded-lg text-cyan-300 transition cursor-pointer"
+                    >
+                      <FileText size={11} />
+                      {lang === 'pl' ? 'Otwórz brief ↗' : 'Open brief ↗'}
+                    </button>
+
+                    <button
                       onClick={() => copyAsMarkdownBrief({
                         geoScore: scorerResult.totalGeoScore,
                         query: queryContext,
@@ -1278,5 +1288,23 @@ export default function GEOToolSuite({ lang, onAddLogMessage }: GEOToolSuiteProp
       )}
 
     </div>
+
+    {/* ContentBriefModal — renders when user clicks "Otwórz brief ↗" in SCORER */}
+    {showBriefModal && scorerResult && (
+      <ContentBriefModal
+        lang={lang}
+        brief={{
+          title: queryContext.slice(0, 60) || 'GEO Content Brief',
+          geoScore: scorerResult.totalGeoScore,
+          query: queryContext,
+          optimizedPassage: scorerResult.optimizedPassage,
+          strengths: scorerResult.geoStrengths,
+          weaknesses: scorerResult.geoWeaknesses,
+          rating: scorerResult.technicalRating,
+          targetMarket: 'PL',
+        }}
+        onClose={() => setShowBriefModal(false)}
+      />
+    )}
   );
 }

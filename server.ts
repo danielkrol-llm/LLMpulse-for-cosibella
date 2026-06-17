@@ -1447,6 +1447,57 @@ app.get('/api/scheduler-settings', (req, res) => {
   });
 });
 
+// ── ClickUp task creator ──────────────────────────────────────────────────
+app.post('/api/clickup-task', async (req: Request, res: Response) => {
+  const { listName, taskName, description, tags, priority } = req.body as {
+    listName: string;
+    taskName: string;
+    description: string;
+    tags: string[];
+    priority: number;
+  };
+  const apiKey = process.env.CLICKUP_API_KEY ?? '';
+  if (!apiKey) {
+    // Return success stub when no API key configured (dev / GitHub Pages builds)
+    return res.json({ id: 'stub-' + Date.now(), url: '#', stubbed: true });
+  }
+  try {
+    // Resolve list id by name within the first accessible team
+    const teamsRes = await fetch('https://api.clickup.com/api/v2/team', {
+      headers: { Authorization: apiKey },
+    });
+    const teamsData = await teamsRes.json() as { teams?: { id: string }[] };
+    const teamId = teamsData.teams?.[0]?.id;
+    if (!teamId) throw new Error('No ClickUp team found');
+
+    const spacesRes = await fetch(`https://api.clickup.com/api/v2/team/${teamId}/space`, {
+      headers: { Authorization: apiKey },
+    });
+    const spacesData = await spacesRes.json() as { spaces?: { id: string }[] };
+    const spaceId = spacesData.spaces?.[0]?.id;
+    if (!spaceId) throw new Error('No ClickUp space found');
+
+    const listsRes = await fetch(`https://api.clickup.com/api/v2/space/${spaceId}/list`, {
+      headers: { Authorization: apiKey },
+    });
+    const listsData = await listsRes.json() as { lists?: { id: string; name: string }[] };
+    const list = listsData.lists?.find(l => l.name === listName) ?? listsData.lists?.[0];
+    if (!list) throw new Error('No ClickUp list found');
+
+    const taskRes = await fetch(`https://api.clickup.com/api/v2/list/${list.id}/task`, {
+      method: 'POST',
+      headers: { Authorization: apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: taskName, description, tags, priority }),
+    });
+    const task = await taskRes.json() as { id?: string; url?: string; err?: string };
+    if (!taskRes.ok) throw new Error(task.err ?? `ClickUp API ${taskRes.status}`);
+    res.json({ id: task.id, url: task.url });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: msg });
+  }
+});
+
 // Dev environment setup
 const isProd = process.env.NODE_ENV === 'production';
 
